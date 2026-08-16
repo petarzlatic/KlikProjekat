@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Profil izvođača — Klik usluga</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Ccircle cx=%2732%27 cy=%2732%27 r=%2732%27 fill=%27%230b4f4a%27/%3E%3Ctext x=%2732%27 y=%2742%27 font-size=%2732%27 font-family=%27Arial%2C sans-serif%27 font-weight=%27700%27 fill=%27%23e0642a%27 text-anchor=%27middle%27%3EK%3C/text%3E%3C/svg%3E" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div id="ku-demo-banner" class="demo-banner"></div>
+<header id="ku-header" class="site-header"></header>
+
+<div class="page-wrap">
+  <div class="container-narrow" id="ku-content"></div>
+</div>
+
+<footer id="ku-footer" class="site-footer"></footer>
+
+<script src="js/config.js"></script>
+<script src="js/store.js"></script>
+<script src="js/common.js"></script>
+<script>
+  const izvId = kuQueryParam("id");
+  const mount = document.getElementById("ku-content");
+
+  function render() {
+    const izv = KU.store.getUserById(izvId);
+    if (!izv || izv.role !== "izvodjac") {
+      mount.innerHTML = `<div class="empty-state card"><h3>Profil nije pronađen</h3></div>`;
+      return;
+    }
+    const stats = KU.store.providerStats(izv.id);
+    const ratings = KU.store.getRatingsByIzvodjac(izv.id);
+
+    let html = `
+      <div class="card">
+        <div class="flex gap-4" style="align-items:center; flex-wrap:wrap;">
+          <div class="avatar avatar-lg">${kuInitials(izv.ime)}</div>
+          <div>
+            <h1 class="mb-0">${kuEscape(izv.ime)}</h1>
+            <div class="rating-summary mt-2">
+              ${kuStarsHtml(stats.avg)}
+              <span>${stats.count ? stats.avg.toFixed(1) + " (" + stats.count + " ocena)" : "Još nema ocena"} · ${stats.poslovi} obavljenih poslova</span>
+            </div>
+          </div>
+        </div>
+        ${izv.bio ? `<p class="mt-4 mb-0">${kuEscape(izv.bio)}</p>` : ""}
+        <div class="mt-4">
+          ${(izv.kategorije || []).map((k) => `<span class="badge" style="background:var(--color-primary-lighter); color:var(--color-primary); margin-right:6px; margin-bottom:6px; display:inline-block;">${kuEscape(kuKategorijaNaziv(k))}</span>`).join("")}
+        </div>
+        <p class="small muted mt-4 mb-0">Kontakt telefon postaje vidljiv klijentu čim prihvati ponudu ovog izvođača na svoj zahtev.</p>
+      </div>
+
+      <h2 class="mt-6">Ocene i utisci (${ratings.length})</h2>
+    `;
+
+    if (ratings.length === 0) {
+      html += `<div class="empty-state card"><p>Ovaj izvođač još nema ocena.</p></div>`;
+    } else {
+      html += ratings.map((r) => {
+        const klijent = KU.store.getUserById(r.klijentId);
+        return `
+          <div class="card mt-4">
+            <div class="flex-between">
+              <div class="flex gap-3" style="align-items:center;">
+                <div class="avatar" style="width:36px; height:36px; font-size:0.85rem;">${kuInitials(klijent ? klijent.ime : "?")}</div>
+                <strong>${kuEscape(klijent ? klijent.ime.split(" ")[0] : "Klijent")}</strong>
+              </div>
+              ${kuStarsHtml(r.ocena)}
+            </div>
+            ${r.komentar ? `<p class="mt-3 mb-0">„${kuEscape(r.komentar)}"</p>` : ""}
+            <p class="small muted mt-2 mb-0">${kuFormatDate(r.createdAt)}</p>
+          </div>`;
+      }).join("");
+    }
+
+    mount.innerHTML = html;
+  }
+
+  render();
+</script>
+</body>
+</html>

@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dostupni zahtevi — Klik usluga</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Ccircle cx=%2732%27 cy=%2732%27 r=%2732%27 fill=%27%230b4f4a%27/%3E%3Ctext x=%2732%27 y=%2742%27 font-size=%2732%27 font-family=%27Arial%2C sans-serif%27 font-weight=%27700%27 fill=%27%23e0642a%27 text-anchor=%27middle%27%3EK%3C/text%3E%3C/svg%3E" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div id="ku-demo-banner" class="demo-banner"></div>
+<header id="ku-header" class="site-header"></header>
+
+<div class="page-wrap">
+  <div class="container">
+    <div class="flex-between mt-2" style="flex-wrap:wrap; gap:12px;">
+      <div>
+        <h1 class="mb-0">Zdravo, <span id="ku-user-ime"></span></h1>
+        <p class="mb-0">Pregledaj zahteve klijenata i javi se na one koji ti odgovaraju.</p>
+      </div>
+      <a href="moj-profil.html" class="btn btn-outline">Uredi moj profil</a>
+    </div>
+
+    <div class="tabs mt-5">
+      <button class="tab-btn active" data-tab="dostupni" type="button">Dostupni zahtevi</button>
+      <button class="tab-btn" data-tab="moje" type="button">Moje ponude</button>
+    </div>
+
+    <div id="tab-dostupni">
+      <div class="filter-bar">
+        <select id="ku-filter-kat"></select>
+        <select id="ku-filter-loc"></select>
+      </div>
+      <div id="ku-open-list"></div>
+    </div>
+
+    <div id="tab-moje" style="display:none;">
+      <div id="ku-my-offers-list"></div>
+    </div>
+  </div>
+</div>
+
+<footer id="ku-footer" class="site-footer"></footer>
+
+<script src="js/config.js"></script>
+<script src="js/store.js"></script>
+<script src="js/common.js"></script>
+<script>
+  const user = kuRequireAuth("izvodjac");
+
+  document.querySelectorAll(".tab-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      document.getElementById("tab-dostupni").style.display = btn.dataset.tab === "dostupni" ? "block" : "none";
+      document.getElementById("tab-moje").style.display = btn.dataset.tab === "moje" ? "block" : "none";
+    });
+  });
+
+  function fillFilters() {
+    const katSelect = document.getElementById("ku-filter-kat");
+    katSelect.innerHTML =
+      '<option value="">Sve moje kategorije</option>' +
+      (user.kategorije || []).map((id) => `<option value="${id}">${kuEscape(kuKategorijaNaziv(id))}</option>`).join("");
+
+    const locSelect = document.getElementById("ku-filter-loc");
+    locSelect.innerHTML =
+      '<option value="">Sve lokacije</option>' +
+      KU_CONFIG.LOKACIJE.map((l) => `<option value="${l}">${kuEscape(l)}</option>`).join("");
+
+    katSelect.addEventListener("change", renderOpen);
+    locSelect.addEventListener("change", renderOpen);
+  }
+
+  function renderOpen() {
+    const katFilter = document.getElementById("ku-filter-kat").value;
+    const locFilter = document.getElementById("ku-filter-loc").value;
+    const myKats = user.kategorije || [];
+
+    let requests = KU.store.getRequests().filter((r) => r.status === "otvoren" && myKats.includes(r.kategorija));
+    if (katFilter) requests = requests.filter((r) => r.kategorija === katFilter);
+    if (locFilter) requests = requests.filter((r) => r.lokacija === locFilter);
+
+    const mount = document.getElementById("ku-open-list");
+    if (requests.length === 0) {
+      mount.innerHTML = `
+        <div class="empty-state card mt-4">
+          <div class="icon-circle">🔍</div>
+          <h3>Trenutno nema otvorenih zahteva</h3>
+          <p>U tvojim kategorijama i izabranoj lokaciji nema zahteva koji čekaju ponudu. Proveri kasnije.</p>
+        </div>`;
+      return;
+    }
+
+    mount.innerHTML = requests.map((r) => {
+      const client = KU.store.getUserById(r.klijentId);
+      const alreadyOffered = KU.store.hasOffered(r.id, user.id);
+      return `
+        <div class="card card-hover mt-4">
+          <div class="flex-between" style="flex-wrap:wrap; gap:8px;">
+            <span class="badge" style="background:var(--color-primary-lighter); color:var(--color-primary);">${kuEscape(kuKategorijaNaziv(r.kategorija))}</span>
+            <span class="small muted">${kuFormatDate(r.createdAt)}</span>
+          </div>
+          <h3 class="mt-2">${kuEscape(r.opis)}</h3>
+          <p class="small mb-0">📍 ${kuEscape(r.lokacija)} ${r.zeljeniTermin ? "· 🗓 " + kuEscape(r.zeljeniTermin) : ""}</p>
+          <p class="small muted">Klijent: ${kuEscape(client ? client.ime : "—")}</p>
+          <div class="flex-between mt-3">
+            <a class="btn btn-outline btn-sm" href="zahtev.html?id=${r.id}">Detalji</a>
+            ${alreadyOffered
+              ? '<span class="badge badge-pending">Već si se javio/la</span>'
+              : `<a class="btn btn-primary btn-sm" href="zahtev.html?id=${r.id}#ponudi">Javi se</a>`}
+          </div>
+        </div>`;
+    }).join("");
+  }
+
+  function renderMyOffers() {
+    const offers = KU.store.getOffersByIzvodjac(user.id).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+    const mount = document.getElementById("ku-my-offers-list");
+    if (offers.length === 0) {
+      mount.innerHTML = `
+        <div class="empty-state card mt-4">
+          <div class="icon-circle">💬</div>
+          <h3>Još nisi poslao/la nijednu ponudu</h3>
+          <p>Kad se javiš na neki zahtev, tu ponudu ćeš pratiti ovde.</p>
+        </div>`;
+      return;
+    }
+    mount.innerHTML = offers.map((o) => {
+      const req = KU.store.getRequestById(o.requestId);
+      if (!req) return "";
+      let statusHtml = '<span class="badge badge-pending">Čeka odgovor</span>';
+      if (o.status === "prihvacena") statusHtml = '<span class="badge badge-open">Prihvaćena — imaš kontakt</span>';
+      if (o.status === "odbijena") statusHtml = '<span class="badge badge-done">Klijent je izabrao drugog</span>';
+      return `
+        <a href="zahtev.html?id=${req.id}" class="card card-hover card-link mt-4" style="display:block;">
+          <div class="flex-between" style="flex-wrap:wrap; gap:8px;">
+            <div>
+              <span class="badge" style="background:var(--color-primary-lighter); color:var(--color-primary);">${kuEscape(kuKategorijaNaziv(req.kategorija))}</span>
+              <h3 class="mt-2 mb-0">${kuEscape(req.opis).slice(0, 90)}${req.opis.length > 90 ? "…" : ""}</h3>
+            </div>
+            ${statusHtml}
+          </div>
+          <p class="small mt-2 mb-0">Tvoja poruka: „${kuEscape(o.poruka)}"</p>
+        </a>`;
+    }).join("");
+  }
+
+  document.getElementById("ku-user-ime").textContent = user ? user.ime.split(" ")[0] : "";
+  fillFilters();
+  renderOpen();
+  renderMyOffers();
+</script>
+</body>
+</html>

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Registracija — Klik usluga</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Ccircle cx=%2732%27 cy=%2732%27 r=%2732%27 fill=%27%230b4f4a%27/%3E%3Ctext x=%2732%27 y=%2742%27 font-size=%2732%27 font-family=%27Arial%2C sans-serif%27 font-weight=%27700%27 fill=%27%23e0642a%27 text-anchor=%27middle%27%3EK%3C/text%3E%3C/svg%3E" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div id="ku-demo-banner" class="demo-banner"></div>
+<header id="ku-header" class="site-header"></header>
+
+<div class="page-wrap">
+  <div class="container-narrow">
+    <h1>Registracija</h1>
+    <p>Registracija je besplatna. Izaberi da li tražiš uslugu ili je nudiš.</p>
+
+    <div class="error-box" id="ku-error"></div>
+
+    <form id="ku-reg-form" novalidate>
+      <div class="field">
+        <label>Ja sam...</label>
+        <div class="radio-group">
+          <label class="radio-card" id="ku-role-klijent">
+            <input type="radio" name="role" value="klijent" />
+            <strong>Klijent</strong>
+            <span>Tražim majstora ili čišćenje</span>
+          </label>
+          <label class="radio-card" id="ku-role-izvodjac">
+            <input type="radio" name="role" value="izvodjac" />
+            <strong>Izvođač</strong>
+            <span>Nudim zanatske ili usluge čišćenja</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="ime">Ime i prezime</label>
+        <input type="text" id="ime" required autocomplete="name" />
+      </div>
+
+      <div class="field">
+        <label for="email">Email</label>
+        <input type="email" id="email" required autocomplete="email" />
+      </div>
+
+      <div class="field">
+        <label for="telefon">Telefon</label>
+        <input type="tel" id="telefon" required autocomplete="tel" placeholder="06X XXX XXXX" />
+        <div class="hint">Vidljiv je samo strani sa kojom se dogovoriš oko posla.</div>
+      </div>
+
+      <div class="field">
+        <label for="password">Lozinka</label>
+        <input type="password" id="password" required autocomplete="new-password" minlength="4" />
+      </div>
+
+      <div id="ku-izvodjac-fields" style="display:none;">
+        <div class="field">
+          <label>Kategorije usluga koje nudiš</label>
+          <div id="ku-kategorije-checkboxes" class="grid grid-2"></div>
+        </div>
+        <div class="field">
+          <label for="bio">Kratak opis / iskustvo</label>
+          <textarea id="bio" placeholder="Npr. 10 godina iskustva, radim u Nišu i okolini..."></textarea>
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-block">Registruj se</button>
+      <p class="small center mt-4 mb-0">Već imaš nalog? <a href="prijava.html">Prijavi se</a></p>
+    </form>
+  </div>
+</div>
+
+<footer id="ku-footer" class="site-footer"></footer>
+
+<script src="js/config.js"></script>
+<script src="js/store.js"></script>
+<script src="js/common.js"></script>
+<script>
+  function selectRole(role) {
+    document.querySelectorAll('input[name="role"]').forEach((r) => { r.checked = r.value === role; });
+    document.getElementById("ku-role-klijent").classList.toggle("selected", role === "klijent");
+    document.getElementById("ku-role-izvodjac").classList.toggle("selected", role === "izvodjac");
+    document.getElementById("ku-izvodjac-fields").style.display = role === "izvodjac" ? "block" : "none";
+  }
+
+  function renderKategorijeCheckboxes() {
+    const mount = document.getElementById("ku-kategorije-checkboxes");
+    mount.innerHTML = KU_CONFIG.KATEGORIJE.map((k) => `
+      <label style="display:flex; align-items:center; gap:8px; font-weight:400; font-size:0.9rem; border:1px solid var(--color-border); border-radius:8px; padding:8px 10px;">
+        <input type="checkbox" value="${k.id}" class="ku-kat-cb" />
+        ${kuEscape(k.naziv)}
+      </label>`).join("");
+  }
+
+  document.getElementById("ku-role-klijent").addEventListener("click", () => selectRole("klijent"));
+  document.getElementById("ku-role-izvodjac").addEventListener("click", () => selectRole("izvodjac"));
+
+  renderKategorijeCheckboxes();
+  const preselectRole = kuQueryParam("role") === "izvodjac" ? "izvodjac" : "klijent";
+  selectRole(preselectRole);
+
+  document.getElementById("ku-reg-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const errBox = document.getElementById("ku-error");
+    errBox.classList.remove("show");
+
+    const role = document.querySelector('input[name="role"]:checked').value;
+    const ime = document.getElementById("ime").value.trim();
+    const email = document.getElementById("email").value.trim();
+    const telefon = document.getElementById("telefon").value.trim();
+    const password = document.getElementById("password").value;
+    const kategorije = Array.from(document.querySelectorAll(".ku-kat-cb:checked")).map((c) => c.value);
+    const bio = document.getElementById("bio").value.trim();
+
+    if (!ime || !email || !telefon || !password) {
+      errBox.textContent = "Popuni sva obavezna polja.";
+      errBox.classList.add("show");
+      return;
+    }
+    if (role === "izvodjac" && kategorije.length === 0) {
+      errBox.textContent = "Izaberi bar jednu kategoriju usluge koju nudiš.";
+      errBox.classList.add("show");
+      return;
+    }
+
+    try {
+      const user = KU.store.registerUser({ role, ime, email, password, telefon, kategorije, bio });
+      kuToast("Dobrodošao/la, " + user.ime.split(" ")[0] + "!");
+      window.location.href = role === "klijent" ? "panel-klijent.html" : "panel-izvodjac.html";
+    } catch (err) {
+      errBox.textContent = err.message;
+      errBox.classList.add("show");
+    }
+  });
+</script>
+</body>
+</html>

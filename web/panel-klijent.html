@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Moji zahtevi — Klik usluga</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Ccircle cx=%2732%27 cy=%2732%27 r=%2732%27 fill=%27%230b4f4a%27/%3E%3Ctext x=%2732%27 y=%2742%27 font-size=%2732%27 font-family=%27Arial%2C sans-serif%27 font-weight=%27700%27 fill=%27%23e0642a%27 text-anchor=%27middle%27%3EK%3C/text%3E%3C/svg%3E" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div id="ku-demo-banner" class="demo-banner"></div>
+<header id="ku-header" class="site-header"></header>
+
+<div class="page-wrap">
+  <div class="container">
+    <div class="flex-between mt-2" style="flex-wrap:wrap; gap:12px;">
+      <div>
+        <h1 class="mb-0">Zdravo, <span id="ku-user-ime"></span></h1>
+        <p class="mb-0">Ovde pratiš svoje objavljene zahteve i ponude koje si dobio/la.</p>
+      </div>
+      <a href="novi-zahtev.html" class="btn btn-primary">+ Objavi novi zahtev</a>
+    </div>
+
+    <div id="ku-requests-list" class="mt-6"></div>
+  </div>
+</div>
+
+<footer id="ku-footer" class="site-footer"></footer>
+
+<script src="js/config.js"></script>
+<script src="js/store.js"></script>
+<script src="js/common.js"></script>
+<script>
+  const user = kuRequireAuth("klijent");
+
+  function statusBadge(status) {
+    if (status === "otvoren") return '<span class="badge badge-open">Otvoren — čeka ponude</span>';
+    if (status === "u_toku") return '<span class="badge badge-pending">Izabran izvođač</span>';
+    if (status === "zavrsen") return '<span class="badge badge-done">Završen</span>';
+    if (status === "otkazan") return '<span class="badge badge-done">Otkazan</span>';
+    return "";
+  }
+
+  function render() {
+    if (!user) return;
+    document.getElementById("ku-user-ime").textContent = user.ime.split(" ")[0];
+
+    const requests = KU.store.getRequestsByKlijent(user.id);
+    const mount = document.getElementById("ku-requests-list");
+
+    if (requests.length === 0) {
+      mount.innerHTML = `
+        <div class="empty-state card">
+          <div class="icon-circle">＋</div>
+          <h3>Još nemaš objavljenih zahteva</h3>
+          <p>Objavi prvi zahtev i izvođači u Nišu će moći da ti se jave.</p>
+          <a href="novi-zahtev.html" class="btn btn-primary">Objavi zahtev</a>
+        </div>`;
+      return;
+    }
+
+    mount.innerHTML = requests.map((r) => {
+      const offers = KU.store.getOffersByRequest(r.id);
+      const needsRating = r.status === "u_toku" || (r.status === "zavrsen" && !KU.store.hasRated(r.id));
+      return `
+        <a class="card card-hover card-link mt-4" href="zahtev.html?id=${r.id}" style="display:block;">
+          <div class="flex-between" style="flex-wrap:wrap; gap:8px;">
+            <div>
+              <span class="badge ${r.kategorija ? "badge-vertical-a" : ""}" style="background:var(--color-primary-lighter); color:var(--color-primary);">${kuEscape(kuKategorijaNaziv(r.kategorija))}</span>
+              <h3 class="mt-2 mb-0">${kuEscape(r.opis).slice(0, 90)}${r.opis.length > 90 ? "…" : ""}</h3>
+            </div>
+            ${statusBadge(r.status)}
+          </div>
+          <p class="small mt-2 mb-0">${kuEscape(r.lokacija)} · objavljeno ${kuFormatDate(r.createdAt)}</p>
+          <p class="small mt-2 mb-0">
+            ${offers.length === 0 ? "Još nema ponuda" : offers.length + (offers.length === 1 ? " ponuda pristigla" : " ponude pristiglo")}
+            ${r.status === "zavrsen" && KU.store.hasRated(r.id) ? " · ocenjeno ✓" : ""}
+          </p>
+        </a>`;
+    }).join("");
+  }
+
+  render();
+</script>
+</body>
+</html>

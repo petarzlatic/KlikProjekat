@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Zahtev — Klik usluga</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Ccircle cx=%2732%27 cy=%2732%27 r=%2732%27 fill=%27%230b4f4a%27/%3E%3Ctext x=%2732%27 y=%2742%27 font-size=%2732%27 font-family=%27Arial%2C sans-serif%27 font-weight=%27700%27 fill=%27%23e0642a%27 text-anchor=%27middle%27%3EK%3C/text%3E%3C/svg%3E" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div id="ku-demo-banner" class="demo-banner"></div>
+<header id="ku-header" class="site-header"></header>
+
+<div class="page-wrap">
+  <div class="container-narrow" id="ku-content">
+    <!-- popunjava se skriptom -->
+  </div>
+</div>
+
+<footer id="ku-footer" class="site-footer"></footer>
+
+<script src="js/config.js"></script>
+<script src="js/store.js"></script>
+<script src="js/common.js"></script>
+<script>
+  const user = kuRequireAuth(null); // bilo koja uloga, samo da je prijavljen
+  const reqId = kuQueryParam("id");
+  const mount = document.getElementById("ku-content");
+
+  function statusBadge(status) {
+    if (status === "otvoren") return '<span class="badge badge-open">Otvoren — čeka ponude</span>';
+    if (status === "u_toku") return '<span class="badge badge-pending">Izvođač izabran</span>';
+    if (status === "zavrsen") return '<span class="badge badge-done">Završen</span>';
+    if (status === "otkazan") return '<span class="badge badge-done">Otkazan</span>';
+    return "";
+  }
+
+  function render() {
+    const req = KU.store.getRequestById(reqId);
+    if (!req) {
+      mount.innerHTML = `<div class="empty-state card"><h3>Zahtev nije pronađen</h3><p>Možda je uklonjen ili link nije ispravan.</p></div>`;
+      return;
+    }
+
+    const client = KU.store.getUserById(req.klijentId);
+    const isOwner = user.role === "klijent" && user.id === req.klijentId;
+    const isProvider = user.role === "izvodjac";
+    const offers = KU.store.getOffersByRequest(req.id);
+    const acceptedOffer = offers.find((o) => o.status === "prihvacena");
+    const myOffer = isProvider ? offers.find((o) => o.izvodjacId === user.id) : null;
+
+    let html = `
+      <div class="flex-between" style="flex-wrap:wrap; gap:8px;">
+        <span class="badge" style="background:var(--color-primary-lighter); color:var(--color-primary);">${kuEscape(kuKategorijaNaziv(req.kategorija))}</span>
+        ${statusBadge(req.status)}
+      </div>
+      <h1 class="mt-3">${kuEscape(req.opis)}</h1>
+      <p class="mb-0">📍 ${kuEscape(req.lokacija)} ${req.zeljeniTermin ? "· 🗓 " + kuEscape(req.zeljeniTermin) : ""}</p>
+      <p class="small muted">Objavio/la ${kuEscape(client ? client.ime.split(" ")[0] : "—")} · ${kuFormatDate(req.createdAt)}</p>
+    `;
+
+    if (isOwner && req.status === "otvoren") {
+      html += `<button class="btn btn-outline btn-sm" id="ku-cancel-btn" type="button">Otkaži zahtev</button>`;
+    }
+
+    html += `<hr class="divider" />`;
+
+    /* ---------- Prikaz za VLASNIKA zahteva (klijent) ---------- */
+    if (isOwner) {
+      if (req.status === "otvoren") {
+        html += `<h2>Ponude (${offers.length})</h2>`;
+        if (offers.length === 0) {
+          html += `<div class="empty-state card"><div class="icon-circle">⏳</div><h3>Još nema ponuda</h3><p>Izvođači u tvojoj kategoriji i lokaciji vide zahtev — obično je potrebno malo vremena da se jave.</p></div>`;
+        } else {
+          html += offers.map((o) => offerCardForClient(o)).join("");
+        }
+      } else if (req.status === "u_toku" && acceptedOffer) {
+        const izv = KU.store.getUserById(acceptedOffer.izvodjacId);
+        html += `
+          <div class="card" style="border-color:var(--color-primary-light);">
+            <h3 class="mt-0">Izabrao/la si izvođača</h3>
+            <div class="flex gap-4 mt-3" style="align-items:center;">
+              <div class="avatar avatar-lg">${kuInitials(izv.ime)}</div>
+              <div>
+                <strong>${kuEscape(izv.ime)}</strong>
+                <div class="small">📞 ${kuEscape(izv.telefon)}</div>
+                <a class="small" href="profil.html?id=${izv.id}">Pogledaj profil →</a>
+              </div>
+            </div>
+            <p class="mt-3 mb-0 small">Dalji dogovor (tačan termin, cena) ide direktno sa izvođačem. Kad posao bude gotov, označi zahtev kao završen i ostavi ocenu.</p>
+            <button class="btn btn-secondary mt-3" id="ku-complete-btn" type="button">Označi posao kao završen</button>
+          </div>`;
+      } else if (req.status === "zavrsen") {
+        const izv = acceptedOffer ? KU.store.getUserById(acceptedOffer.izvodjacId) : null;
+        if (izv && !KU.store.hasRated(req.id)) {
+          html += ratingFormHtml(izv);
+        } else if (izv) {
+          html += `<div class="success-box">Posao je označen kao završen i ocenjen. Hvala!</div>`;
+        } else {
+          html += `<div class="success-box">Posao je označen kao završen.</div>`;
+        }
+      } else if (req.status === "otkazan") {
+        html += `<p class="muted">Ovaj zahtev je otkazan.</p>`;
+      }
+    }
+
+    /* ---------- Prikaz za IZVOĐAČA ---------- */
+    if (isProvider) {
+      if (req.status === "otvoren") {
+        if (myOffer) {
+          html += `<div class="success-box">Poslao/la si ponudu: „${kuEscape(myOffer.poruka)}" — čekaš odgovor klijenta.</div>`;
+        } else {
+          html += `<div id="ponudi"></div><h2>Javi se na ovaj zahtev</h2>` + offerFormHtml();
+        }
+      } else if (req.status === "u_toku") {
+        if (acceptedOffer && acceptedOffer.izvodjacId === user.id) {
+          html += `
+            <div class="card" style="border-color:var(--color-primary-light);">
+              <h3 class="mt-0">Klijent je prihvatio tvoju ponudu 🎉</h3>
+              <div class="flex gap-4 mt-3" style="align-items:center;">
+                <div class="avatar avatar-lg">${kuInitials(client.ime)}</div>
+                <div>
+                  <strong>${kuEscape(client.ime)}</strong>
+                  <div class="small">📞 ${kuEscape(client.telefon)}</div>
+                </div>
+              </div>
+              <p class="mt-3 mb-0 small">Dogovorite tačan termin i cenu direktno. Klijent će označiti posao kao završen i ostaviti ocenu nakon obavljenog posla.</p>
+            </div>`;
+        } else if (myOffer) {
+          html += `<div class="empty-state card"><p>Klijent je izabrao drugog izvođača za ovaj zahtev.</p></div>`;
+        } else {
+          html += `<div class="empty-state card"><p>Ovaj zahtev više ne prima ponude — klijent je već izabrao izvođača.</p></div>`;
+        }
+      } else if (req.status === "zavrsen") {
+        html += `<div class="empty-state card"><p>Ovaj posao je završen.</p></div>`;
+      } else if (req.status === "otkazan") {
+        html += `<p class="muted">Ovaj zahtev je otkazan.</p>`;
+      }
+    }
+
+    mount.innerHTML = html;
+    attachHandlers(req);
+  }
+
+  function offerCardForClient(o) {
+    const izv = KU.store.getUserById(o.izvodjacId);
+    const stats = KU.store.providerStats(izv.id);
+    return `
+      <div class="card mt-4">
+        <div class="flex-between" style="flex-wrap:wrap; gap:12px;">
+          <div class="flex gap-3" style="align-items:center;">
+            <div class="avatar">${kuInitials(izv.ime)}</div>
+            <div>
+              <a href="profil.html?id=${izv.id}"><strong>${kuEscape(izv.ime)}</strong></a>
+              <div class="rating-summary">
+                ${kuStarsHtml(stats.avg)}
+                <span>${stats.count ? stats.avg.toFixed(1) + " (" + stats.count + ")" : "Bez ocena još"} · ${stats.poslovi} obavljenih poslova</span>
+              </div>
+            </div>
+          </div>
+          <button class="btn btn-primary btn-sm ku-accept-offer" data-offer="${o.id}" type="button">Prihvati ponudu</button>
+        </div>
+        <p class="mt-3 mb-0">„${kuEscape(o.poruka)}"</p>
+      </div>`;
+  }
+
+  function offerFormHtml() {
+    return `
+      <form id="ku-offer-form">
+        <div class="field">
+          <label for="ku-offer-msg">Tvoja poruka klijentu</label>
+          <textarea id="ku-offer-msg" required placeholder="Npr. Mogu da izađem u dogovorenom terminu, imam iskustva sa sličnim poslovima..."></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">Pošalji ponudu</button>
+      </form>`;
+  }
+
+  function ratingFormHtml(izv) {
+    return `
+      <div class="card">
+        <h3 class="mt-0">Oceni ${kuEscape(izv.ime.split(" ")[0])}</h3>
+        <form id="ku-rating-form">
+          <div class="field">
+            <label>Ocena</label>
+            <div id="ku-star-picker" style="font-size:1.6rem; cursor:pointer;"></div>
+            <input type="hidden" id="ku-rating-value" value="5" />
+          </div>
+          <div class="field">
+            <label for="ku-rating-comment">Komentar (opciono)</label>
+            <textarea id="ku-rating-comment" placeholder="Kako je prošao posao?"></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary">Sačuvaj ocenu</button>
+        </form>
+      </div>`;
+  }
+
+  function renderStarPicker() {
+    const el = document.getElementById("ku-star-picker");
+    if (!el) return;
+    function draw(val) {
+      el.innerHTML = [1, 2, 3, 4, 5].map((i) =>
+        `<span data-val="${i}" style="color:${i <= val ? "var(--color-star)" : "#e3e0da"};">★</span>`
+      ).join("");
+    }
+    let current = 5;
+    draw(current);
+    el.addEventListener("click", (e) => {
+      const val = e.target.getAttribute("data-val");
+      if (!val) return;
+      current = Number(val);
+      document.getElementById("ku-rating-value").value = current;
+      draw(current);
+    });
+  }
+
+  function attachHandlers(req) {
+    const cancelBtn = document.getElementById("ku-cancel-btn");
+    if (cancelBtn) cancelBtn.addEventListener("click", () => {
+      if (confirm("Sigurno želiš da otkažeš ovaj zahtev?")) {
+        KU.store.cancelRequest(req.id);
+        render();
+      }
+    });
+
+    document.querySelectorAll(".ku-accept-offer").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        KU.store.acceptOffer(btn.dataset.offer);
+        kuToast("Izvođač je izabran — kontakt je otključan.");
+        render();
+      });
+    });
+
+    const offerForm = document.getElementById("ku-offer-form");
+    if (offerForm) offerForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const poruka = document.getElementById("ku-offer-msg").value.trim();
+      if (!poruka) return;
+      KU.store.createOffer({ requestId: req.id, izvodjacId: user.id, poruka });
+      kuToast("Ponuda poslata!");
+      render();
+    });
+
+    const completeBtn = document.getElementById("ku-complete-btn");
+    if (completeBtn) completeBtn.addEventListener("click", () => {
+      KU.store.completeRequest(req.id);
+      render();
+    });
+
+    renderStarPicker();
+    const ratingForm = document.getElementById("ku-rating-form");
+    if (ratingForm) ratingForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const ocena = document.getElementById("ku-rating-value").value;
+      const komentar = document.getElementById("ku-rating-comment").value.trim();
+      const acceptedOffer = KU.store.getOffersByRequest(req.id).find((o) => o.status === "prihvacena");
+      KU.store.addRating({
+        requestId: req.id,
+        izvodjacId: acceptedOffer.izvodjacId,
+        klijentId: user.id,
+        ocena,
+        komentar,
+      });
+      kuToast("Hvala na oceni!");
+      render();
+    });
+  }
+
+  if (user && reqId) render();
+  if (user && !reqId) {
+    mount.innerHTML = `<div class="empty-state card"><h3>Nedostaje ID zahteva</h3></div>`;
+  }
+</script>
+</body>
+</html>

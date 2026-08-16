@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Kako radi — Klik usluga</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Ccircle cx=%2732%27 cy=%2732%27 r=%2732%27 fill=%27%230b4f4a%27/%3E%3Ctext x=%2732%27 y=%2742%27 font-size=%2732%27 font-family=%27Arial%2C sans-serif%27 font-weight=%27700%27 fill=%27%23e0642a%27 text-anchor=%27middle%27%3EK%3C/text%3E%3C/svg%3E" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div id="ku-demo-banner" class="demo-banner"></div>
+<header id="ku-header" class="site-header"></header>
+
+<div class="page-wrap">
+  <div class="container-narrow">
+    <h1>Kako Klik usluga radi</h1>
+    <p>Platforma povezuje dve strane tržišta kućnih usluga u Nišu: korisnike koji traže zanatlije ili čišćenje, i izvođače koji nude te usluge. Cilj je da poverenje bude vidljivo unapred — kroz profil, ocene i istoriju obavljenih poslova.</p>
+
+    <hr class="divider" />
+
+    <h2>Četiri koraka</h2>
+    <div class="flex-col gap-4">
+      <div class="step">
+        <div class="icon-circle">1</div>
+        <div>
+          <strong>Korisnik objavljuje zahtev</strong>
+          <p class="small">Bira kategoriju (npr. „krečenje dvosobnog stana"), opisuje posao, unosi lokaciju i željeni termin. Bez zvanja deset brojeva iz oglasnika.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="icon-circle">2</div>
+        <div>
+          <strong>Izvođači vide zahtev i jave se</strong>
+          <p class="small">Izvođači koji rade tu kategoriju usluge vide zahtev i šalju ponudu — kratku poruku o dostupnosti i uslovima.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="icon-circle">3</div>
+        <div>
+          <strong>Korisnik bira i posao se dogovara direktno</strong>
+          <p class="small">Korisnik bira izvođača na osnovu profila, ocene i prethodnih poslova. Kontakt se otključava, a dalji dogovor (cena, tačan termin) ide direktno između strana — platforma se u ovoj fazi ne meša u plaćanje.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="icon-circle">4</div>
+        <div>
+          <strong>Nakon posla, korisnik ostavlja ocenu</strong>
+          <p class="small">Ocena i komentar grade javni profil izvođača — to je razlika u odnosu na Facebook grupu, koja nema pamćenje.</p>
+        </div>
+      </div>
+    </div>
+
+    <hr class="divider" />
+
+    <h2>Katalog usluga</h2>
+    <p>Platforma pokriva dve komplementarne vertikale — zanatski poslovi imaju visoku vrednost ali su retki i sezonski, čišćenje je jeftinije po poslu ali stalno tokom godine.</p>
+
+    <div class="grid grid-2 mt-4" id="ku-katalog"></div>
+
+    <p class="small muted mt-4" id="ku-katalog-napomena"></p>
+
+    <hr class="divider" />
+
+    <h2>Sa kim se zapravo takmičimo</h2>
+    <p>Konkurencija postoji — samo nije u obliku direktne platforme.</p>
+    <div class="card" style="overflow-x:auto;">
+      <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
+        <thead>
+          <tr style="text-align:left; border-bottom:1px solid var(--color-border);">
+            <th style="padding:8px 6px;">Alternativa</th>
+            <th style="padding:8px 6px;">Njihova prednost</th>
+            <th style="padding:8px 6px;">Naša prednost</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom:1px solid var(--color-border);">
+            <td style="padding:8px 6px;">Usmena preporuka</td>
+            <td style="padding:8px 6px;" class="muted">Potpuno poverenje, nula troška</td>
+            <td style="padding:8px 6px;">Dostupnost odmah, kada preporuke nema</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--color-border);">
+            <td style="padding:8px 6px;">Facebook grupe za Niš</td>
+            <td style="padding:8px 6px;" class="muted">Postojeća zajednica, besplatno</td>
+            <td style="padding:8px 6px;">Struktura, ocene, istorija — grupa nema pamćenje</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--color-border);">
+            <td style="padding:8px 6px;">Opšti oglasnici</td>
+            <td style="padding:8px 6px;" class="muted">Ogroman saobraćaj i prepoznatljivost</td>
+            <td style="padding:8px 6px;">Specijalizacija: filteri i profili pravljeni za usluge</td>
+          </tr>
+          <tr>
+            <td style="padding:8px 6px;">Domaće majstorske aplikacije</td>
+            <td style="padding:8px 6px;" class="muted">Prednost prvog na tržištu</td>
+            <td style="padding:8px 6px;">Dve vertikale umesto jedne, posvećenost jednom gradu</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <hr class="divider" />
+
+    <h2>Veličina tržišta</h2>
+    <div class="grid grid-2">
+      <div class="card">
+        <div class="stat-num" style="color:var(--color-primary); font-size:1.8rem; font-weight:800;">100.274</div>
+        <p class="small mb-0">domaćinstava u Gradu Nišu (Popis 2022)</p>
+      </div>
+      <div class="card">
+        <div class="stat-num" style="color:var(--color-primary); font-size:1.8rem; font-weight:800;">~74.000</div>
+        <p class="small mb-0">domaćinstava u užem gradskom području — naše realno dostupno tržište u prvim fazama</p>
+      </div>
+    </div>
+
+    <div class="center mt-6">
+      <a class="btn btn-primary" href="registracija.html">Registruj se i probaj</a>
+    </div>
+  </div>
+</div>
+
+<footer id="ku-footer" class="site-footer"></footer>
+
+<script src="js/config.js"></script>
+<script src="js/store.js"></script>
+<script src="js/common.js"></script>
+<script>
+  function renderKatalog() {
+    const mount = document.getElementById("ku-katalog");
+    const vertA = KU_CONFIG.KATEGORIJE.filter((k) => k.vertikala === "A");
+    const vertB = KU_CONFIG.KATEGORIJE.filter((k) => k.vertikala === "B");
+
+    function listHtml(title, badgeClass, items) {
+      const lis = items.map((k) => {
+        const aktivna = kuKategorijaAktivna(k.id);
+        return `<li style="margin-bottom:6px; display:flex; align-items:center; gap:8px;">
+          <span>${kuEscape(k.naziv)}</span>
+          ${aktivna ? '<span class="badge badge-open">otvoreno</span>' : '<span class="badge badge-done">uskoro</span>'}
+        </li>`;
+      }).join("");
+      return `<div class="card">
+        <span class="badge ${badgeClass}">${title}</span>
+        <ul style="list-style:none; padding:0; margin-top:12px;">${lis}</ul>
+      </div>`;
+    }
+
+    mount.innerHTML =
+      listHtml("A · Zanatsko-građevinski segment", "badge-vertical-a", vertA) +
+      listHtml("B · Održavanje i čistoća", "badge-vertical-b", vertB);
+
+    document.getElementById("ku-katalog-napomena").textContent =
+      "U Fazi 1 se ne otvaraju sve kategorije odjednom — kreće se sa najtraženijima, na osnovu ručne validacije (Faza 0). Ostale kategorije su vidljive u katalogu ali još ne primaju zahteve.";
+  }
+  renderKatalog();
+</script>
+</body>
+</html>

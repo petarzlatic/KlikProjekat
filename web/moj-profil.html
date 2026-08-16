@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Moj profil — Klik usluga</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Ccircle cx=%2732%27 cy=%2732%27 r=%2732%27 fill=%27%230b4f4a%27/%3E%3Ctext x=%2732%27 y=%2742%27 font-size=%2732%27 font-family=%27Arial%2C sans-serif%27 font-weight=%27700%27 fill=%27%23e0642a%27 text-anchor=%27middle%27%3EK%3C/text%3E%3C/svg%3E" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div id="ku-demo-banner" class="demo-banner"></div>
+<header id="ku-header" class="site-header"></header>
+
+<div class="page-wrap">
+  <div class="container-narrow">
+    <h1>Moj profil</h1>
+
+    <div class="success-box" id="ku-success" style="display:none;">Sačuvano!</div>
+
+    <form id="ku-profile-form">
+      <div class="field">
+        <label for="ime">Ime i prezime</label>
+        <input type="text" id="ime" required />
+      </div>
+      <div class="field">
+        <label for="telefon">Telefon</label>
+        <input type="tel" id="telefon" required />
+      </div>
+      <div id="ku-izvodjac-fields" style="display:none;">
+        <div class="field">
+          <label>Kategorije usluga koje nudiš</label>
+          <div id="ku-kategorije-checkboxes" class="grid grid-2"></div>
+        </div>
+        <div class="field">
+          <label for="bio">Kratak opis / iskustvo</label>
+          <textarea id="bio"></textarea>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary">Sačuvaj izmene</button>
+    </form>
+  </div>
+</div>
+
+<footer id="ku-footer" class="site-footer"></footer>
+
+<script src="js/config.js"></script>
+<script src="js/store.js"></script>
+<script src="js/common.js"></script>
+<script>
+  const user = kuRequireAuth(null);
+
+  function renderKategorijeCheckboxes(selected) {
+    const mount = document.getElementById("ku-kategorije-checkboxes");
+    mount.innerHTML = KU_CONFIG.KATEGORIJE.map((k) => `
+      <label style="display:flex; align-items:center; gap:8px; font-weight:400; font-size:0.9rem; border:1px solid var(--color-border); border-radius:8px; padding:8px 10px;">
+        <input type="checkbox" value="${k.id}" class="ku-kat-cb" ${selected.includes(k.id) ? "checked" : ""} />
+        ${kuEscape(k.naziv)}
+      </label>`).join("");
+  }
+
+  function fillForm() {
+    document.getElementById("ime").value = user.ime;
+    document.getElementById("telefon").value = user.telefon;
+    if (user.role === "izvodjac") {
+      document.getElementById("ku-izvodjac-fields").style.display = "block";
+      document.getElementById("bio").value = user.bio || "";
+      renderKategorijeCheckboxes(user.kategorije || []);
+    }
+  }
+
+  if (user) fillForm();
+
+  document.getElementById("ku-profile-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const patch = {
+      ime: document.getElementById("ime").value.trim(),
+      telefon: document.getElementById("telefon").value.trim(),
+    };
+    if (user.role === "izvodjac") {
+      patch.bio = document.getElementById("bio").value.trim();
+      patch.kategorije = Array.from(document.querySelectorAll(".ku-kat-cb:checked")).map((c) => c.value);
+    }
+    KU.store.updateUser(user.id, patch);
+    document.getElementById("ku-success").style.display = "block";
+    kuToast("Profil sačuvan.");
+  });
+</script>
+</body>
+</html>

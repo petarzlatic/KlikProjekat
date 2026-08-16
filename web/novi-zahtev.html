@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Objavi zahtev — Klik usluga</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Ccircle cx=%2732%27 cy=%2732%27 r=%2732%27 fill=%27%230b4f4a%27/%3E%3Ctext x=%2732%27 y=%2742%27 font-size=%2732%27 font-family=%27Arial%2C sans-serif%27 font-weight=%27700%27 fill=%27%23e0642a%27 text-anchor=%27middle%27%3EK%3C/text%3E%3C/svg%3E" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div id="ku-demo-banner" class="demo-banner"></div>
+<header id="ku-header" class="site-header"></header>
+
+<div class="page-wrap">
+  <div class="container-narrow">
+    <h1>Objavi zahtev</h1>
+    <p>Opiši šta ti treba — izvođači koji rade tu kategoriju usluge će videti zahtev i javiti se.</p>
+
+    <div class="error-box" id="ku-error"></div>
+
+    <form id="ku-req-form" novalidate>
+      <div class="field">
+        <label for="kategorija">Kategorija usluge</label>
+        <select id="kategorija" required></select>
+        <div class="hint">U ovoj fazi su otvorene samo najtraženije kategorije. Ostale stižu uskoro.</div>
+      </div>
+
+      <div class="field">
+        <label for="opis">Opis posla</label>
+        <textarea id="opis" required placeholder="Npr. Krečenje dvosobnog stana, oko 55m2, zidovi u dobrom stanju."></textarea>
+      </div>
+
+      <div class="field">
+        <label for="lokacija">Lokacija</label>
+        <select id="lokacija" required></select>
+      </div>
+
+      <div class="field">
+        <label for="termin">Željeni termin</label>
+        <input type="text" id="termin" placeholder="Npr. sledeće nedelje, ili 'fleksibilno'" />
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-block">Objavi zahtev</button>
+    </form>
+  </div>
+</div>
+
+<footer id="ku-footer" class="site-footer"></footer>
+
+<script src="js/config.js"></script>
+<script src="js/store.js"></script>
+<script src="js/common.js"></script>
+<script>
+  const user = kuRequireAuth("klijent");
+
+  function fillSelects() {
+    const katSelect = document.getElementById("kategorija");
+    const aktivne = KU_CONFIG.KATEGORIJE.filter((k) => kuKategorijaAktivna(k.id));
+    katSelect.innerHTML =
+      '<option value="">Izaberi kategoriju...</option>' +
+      aktivne.map((k) => `<option value="${k.id}">${kuEscape(k.naziv)}</option>`).join("");
+
+    const locSelect = document.getElementById("lokacija");
+    locSelect.innerHTML =
+      '<option value="">Izaberi deo grada...</option>' +
+      KU_CONFIG.LOKACIJE.map((l) => `<option value="${l}">${kuEscape(l)}</option>`).join("");
+  }
+  fillSelects();
+
+  document.getElementById("ku-req-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const errBox = document.getElementById("ku-error");
+    errBox.classList.remove("show");
+
+    const kategorija = document.getElementById("kategorija").value;
+    const opis = document.getElementById("opis").value.trim();
+    const lokacija = document.getElementById("lokacija").value;
+    const termin = document.getElementById("termin").value.trim();
+
+    if (!kategorija || !opis || !lokacija) {
+      errBox.textContent = "Popuni kategoriju, opis i lokaciju.";
+      errBox.classList.add("show");
+      return;
+    }
+
+    const req = KU.store.createRequest({
+      klijentId: user.id,
+      kategorija,
+      opis,
+      lokacija,
+      zeljeniTermin: termin,
+    });
+    kuToast("Zahtev objavljen!");
+    window.location.href = "zahtev.html?id=" + req.id;
+  });
+</script>
+</body>
+</html>

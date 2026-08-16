@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pronađi izvođača — Klik usluga</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Ccircle cx=%2732%27 cy=%2732%27 r=%2732%27 fill=%27%230b4f4a%27/%3E%3Ctext x=%2732%27 y=%2742%27 font-size=%2732%27 font-family=%27Arial%2C sans-serif%27 font-weight=%27700%27 fill=%27%23e0642a%27 text-anchor=%27middle%27%3EK%3C/text%3E%3C/svg%3E" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div id="ku-demo-banner" class="demo-banner"></div>
+<header id="ku-header" class="site-header"></header>
+
+<div class="page-wrap">
+  <div class="container">
+    <h1>Pronađi izvođača</h1>
+    <p>Pregledaj registrovane izvođače po kategoriji usluge.</p>
+
+    <div class="filter-bar">
+      <select id="ku-filter-kat"></select>
+    </div>
+
+    <div id="ku-providers-list" class="grid grid-3 mt-4"></div>
+  </div>
+</div>
+
+<footer id="ku-footer" class="site-footer"></footer>
+
+<script src="js/config.js"></script>
+<script src="js/store.js"></script>
+<script src="js/common.js"></script>
+<script>
+  function fillFilter() {
+    const sel = document.getElementById("ku-filter-kat");
+    sel.innerHTML =
+      '<option value="">Sve kategorije</option>' +
+      KU_CONFIG.KATEGORIJE.map((k) => `<option value="${k.id}">${kuEscape(k.naziv)}</option>`).join("");
+    sel.addEventListener("change", render);
+  }
+
+  function render() {
+    const katFilter = document.getElementById("ku-filter-kat").value;
+    let providers = KU.store.getUsers().filter((u) => u.role === "izvodjac");
+    if (katFilter) providers = providers.filter((p) => (p.kategorije || []).includes(katFilter));
+
+    const mount = document.getElementById("ku-providers-list");
+    if (providers.length === 0) {
+      mount.innerHTML = `<div class="empty-state card"><h3>Nema rezultata</h3><p>Za ovu kategoriju još nema registrovanih izvođača.</p></div>`;
+      return;
+    }
+
+    mount.innerHTML = providers.map((p) => {
+      const stats = KU.store.providerStats(p.id);
+      return `
+        <a href="profil.html?id=${p.id}" class="card card-hover card-link">
+          <div class="flex gap-3" style="align-items:center;">
+            <div class="avatar">${kuInitials(p.ime)}</div>
+            <div>
+              <strong>${kuEscape(p.ime)}</strong>
+              <div class="rating-summary">
+                ${kuStarsHtml(stats.avg)}
+                <span>${stats.count ? stats.avg.toFixed(1) : "—"}</span>
+              </div>
+            </div>
+          </div>
+          <div class="mt-3">
+            ${(p.kategorije || []).slice(0, 3).map((k) => `<span class="badge" style="background:var(--color-primary-lighter); color:var(--color-primary); margin-right:4px; margin-bottom:4px; display:inline-block;">${kuEscape(kuKategorijaNaziv(k))}</span>`).join("")}
+          </div>
+        </a>`;
+    }).join("");
+  }
+
+  fillFilter();
+  render();
+</script>
+</body>
+</html>
