@@ -1,5 +1,5 @@
 /* =========================================================
-   KLIK USLUGA — Konfiguracija
+   SVENAKLIK — Konfiguracija
    Ovde se menjaju stvari koje se često prilagođavaju:
    grad, kategorije, koje kategorije su trenutno "otvorene"
    za objavu zahteva (Faza 1 iz biznis plana kaže: 3-4
@@ -13,7 +13,15 @@
 
 const KU_CONFIG = {
   grad: "Niš",
-  nazivPlatforme: "Klik usluga",
+  nazivPlatforme: "Svenaklik",
+
+  // Podaci za povezivanje sa pravom bazom (Supabase). "anonKey" je JAVNI
+  // ključ napravljen baš da se koristi u kodu sajta koji svi vide — nije
+  // tajna lozinka, bezbednost čuvaju RLS pravila u db/schema.sql.
+  supabase: {
+    url: "https://pamtfyrfliiwyqrimmsm.supabase.co",
+    anonKey: "sb_publishable_beU0tut-Q8EdSeYCugmvlw_0mDfHVBr",
+  },
 
   // Sve kategorije iz kataloga usluga (odeljak 4 biznis plana)
   KATEGORIJE: [
