@@ -79,7 +79,7 @@ function kuRenderHeader(activeNav) {
 
   mount.innerHTML = `
     <div class="inner">
-      <a class="logo" href="index.html">Svena<span class="dot">•</span>klik</a>
+      <a class="logo" href="index.html">SveNaKlik<span class="dot">.rs</span></a>
       <nav class="nav-links">
         <a class="navlink" href="kako-radi.html">Kako radi</a>
         <a class="navlink" href="pretraga.html">Pronađi izvođača</a>
@@ -104,7 +104,7 @@ function kuRenderFooter() {
   mount.innerHTML = `
     <div class="container foot-grid">
       <div>
-        <div class="logo" style="color:#fff;">Svena<span class="dot">•</span>klik</div>
+        <div class="logo" style="color:#fff;">SveNaKlik<span class="dot">.rs</span></div>
         <p class="small" style="color:#a9c4c0; max-width:320px; margin-top:8px;">
           Digitalna platforma koja povezuje zanatlije i servise za čišćenje sa korisnicima.
           Test tržište: Niš, Srbija.
@@ -122,7 +122,7 @@ function kuRenderFooter() {
         <div class="small" style="color:#fff; font-weight:700; margin-bottom:8px;">O projektu</div>
         <div class="flex-col small" style="gap:6px;">
           <span>MVP verzija — u razvoju</span>
-          <span>© ${new Date().getFullYear()} Svenaklik</span>
+          <span>© ${new Date().getFullYear()} SveNaKlik.rs</span>
         </div>
       </div>
     </div>`;
