@@ -1,378 +1,402 @@
 /* =========================================================
-   KLIK USLUGA — Data layer (privremeno: localStorage)
+   SVENAKLIK — Data layer (Supabase)
    -----------------------------------------------------
-   VAŽNO ZA SLEDEĆU FAZU: Sve funkcije ispod (KU.store.*)
-   su namerno napisane kao da već pričaju sa pravom bazom —
-   isto ime funkcije, isti ulaz/izlaz. Kada budemo povezivali
-   pravu bazu (Supabase), menja se SAMO unutrašnjost ovih
-   funkcija (npr. umesto localStorage.getItem ide poziv ka
-   serveru) — nijedna HTML stranica ne mora da se dira.
-   To je razlog zašto je sav pristup podacima ovde na jednom
-   mestu, a ne razbacan po stranicama.
+   Ovo je JEDINO mesto u sajtu koje priča sa bazom (Supabase).
+   Sve HTML stranice pozivaju iste funkcije kao i pre
+   (KU.store.getRequests(), KU.store.login()...), samo što
+   sada te funkcije vraćaju "Promise" (rade preko interneta,
+   ne trenutno kao localStorage) — zato stranice ispred tih
+   poziva imaju "await".
+
+   KU.ready je jedan "signal" koji kaže da je provera prijave
+   (da li je neko već ulogovan) završena. Svaka stranica prvo
+   sačeka (await KU.ready) pre nego što nastavi — to se radi
+   samo jednom po učitavanju stranice, brzo je.
    ========================================================= */
 
-const KU_DB_KEY = "ku_db_v1";
-const KU_SESSION_KEY = "ku_session_v1";
+const KU_SUPABASE = window.supabase.createClient(KU_CONFIG.supabase.url, KU_CONFIG.supabase.anonKey);
 
-function kuUid(prefix) {
-  return (prefix || "id") + "_" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+let _kuCurrentUser = null;
+
+/* ---------------------- Prevod baza <-> sajt ----------------------
+   Kolone u bazi su snake_case (klijent_id, created_at...), a sajt
+   svuda koristi camelCase (klijentId, createdAt...) kao i u staroj
+   localStorage verziji — ovi "mapiraj" pretvaraju jedno u drugo, da
+   nijedna HTML stranica ne mora da se menja zbog imena polja. */
+
+function _kuMapProfile(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    role: row.role,
+    ime: row.ime,
+    email: row.email,
+    telefon: row.telefon,
+    kategorije: row.kategorije || [],
+    bio: row.bio || "",
+    createdAt: row.created_at,
+    demo: !!row.demo,
+    godinaRodjenja: row.godina_rodjenja,
+    godineIskustva: row.godine_iskustva,
+  };
 }
 
-function kuNow() {
-  return new Date().toISOString();
+function _kuMapRequest(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    klijentId: row.klijent_id,
+    kategorija: row.kategorija,
+    opis: row.opis,
+    lokacija: row.lokacija,
+    zeljeniTermin: row.zeljeni_termin || "",
+    status: row.status,
+    createdAt: row.created_at,
+    izabranaPonudaId: row.izabrana_ponuda_id,
+  };
 }
 
-function kuLoadDb() {
-  const raw = localStorage.getItem(KU_DB_KEY);
-  if (!raw) return null;
-  try { return JSON.parse(raw); } catch (e) { return null; }
+function _kuMapOffer(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    requestId: row.request_id,
+    izvodjacId: row.izvodjac_id,
+    poruka: row.poruka,
+    status: row.status,
+    createdAt: row.created_at,
+  };
 }
 
-function kuSaveDb(db) {
-  localStorage.setItem(KU_DB_KEY, JSON.stringify(db));
+function _kuMapRating(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    requestId: row.request_id,
+    izvodjacId: row.izvodjac_id,
+    klijentId: row.klijent_id,
+    ocena: row.ocena,
+    komentar: row.komentar || "",
+    createdAt: row.created_at,
+  };
 }
 
-function kuEmptyDb() {
-  return { users: [], requests: [], offers: [], ratings: [] };
+/* Neke greške od Supabase Auth su na engleskom — prevod za najčešće. */
+function _kuAuthErrorMessage(error) {
+  const msg = (error && error.message) || "";
+  if (/already registered|already exists/i.test(msg)) {
+    return "Nalog sa ovim email-om već postoji. Probaj da se prijaviš.";
+  }
+  if (/invalid login credentials/i.test(msg)) {
+    return "Pogrešan email ili lozinka.";
+  }
+  if (/password should be at least/i.test(msg)) {
+    return "Lozinka je prekratka (najmanje 6 karaktera).";
+  }
+  if (/email not confirmed/i.test(msg)) {
+    return "Nalog čeka potvrdu email-a. Proveri inbox (i spam folder) pre prijave.";
+  }
+  return msg || "Došlo je do greške. Pokušaj ponovo.";
 }
 
-/* ---------------------- Demo/seed podaci ---------------------- */
-function kuSeedDb() {
-  const db = kuEmptyDb();
-
-  const izvodjaci = [
-    { ime: "Dragan Petrović", kategorije: ["krecenje", "gips-keramika", "kupatila"], bio: "15 godina iskustva u molersko-farbarskim i keramičarskim radovima. Radim u Nišu i okolini.", telefon: "060 111 2201" },
-    { ime: "Sanja Ilić", kategorije: ["ciscenje-redovno", "ciscenje-generalno", "pranje-prozora"], bio: "Servis za čišćenje stanova i kancelarija. Ekipa od 3 osobe, dostupni radnim danima i vikendom.", telefon: "060 222 3302" },
-    { ime: "Zoran Nikolić", kategorije: ["vodoinstalater", "bela-tehnika"], bio: "Vodoinstalater, hitne intervencije 0-24. Popravka bele tehnike na licu mesta.", telefon: "060 333 4403" },
-    { ime: "Ivana Marković", kategorije: ["ciscenje-generalno", "dubinsko-pranje"], bio: "Generalno i dubinsko čišćenje, pranje tepiha i tapaciranog nameštaja profesionalnom mašinom.", telefon: "060 444 5504" },
-    { ime: "Miloš Stanković", kategorije: ["kupatila", "podovi", "fasade"], bio: "Kompletno renoviranje kupatila i postavljanje podova. Radovi sa garancijom.", telefon: "060 555 6605" },
-  ];
-
-  const klijenti = [
-    { ime: "Jelena Todorović", telefon: "064 111 0001" },
-    { ime: "Marko Đorđević", telefon: "064 222 0002" },
-    { ime: "Ana Ristić", telefon: "064 333 0003" },
-  ];
-
-  izvodjaci.forEach((iz, idx) => {
-    db.users.push({
-      id: "izv_demo_" + idx,
-      role: "izvodjac",
-      ime: iz.ime,
-      email: "izvodjac" + idx + "@primer.rs",
-      password: "demo123",
-      telefon: iz.telefon,
-      kategorije: iz.kategorije,
-      bio: iz.bio,
-      createdAt: kuNow(),
-      demo: true,
-    });
-  });
-
-  klijenti.forEach((k, idx) => {
-    db.users.push({
-      id: "kli_demo_" + idx,
-      role: "klijent",
-      ime: k.ime,
-      email: "klijent" + idx + "@primer.rs",
-      password: "demo123",
-      telefon: k.telefon,
-      createdAt: kuNow(),
-      demo: true,
-    });
-  });
-
-  // Nekoliko završenih poslova + ocena, da profili izvođača imaju istoriju
-  const zavrseniPrimeri = [
-    { klIdx: 0, izIdx: 0, kat: "krecenje", opis: "Krečenje dvosobnog stana, oko 55m2.", loc: "Medijana", ocena: 5, komentar: "Sve urađeno brzo i uredno, preporučujem." },
-    { klIdx: 1, izIdx: 1, kat: "ciscenje-generalno", opis: "Generalno čišćenje stana pred useljenje.", loc: "Pantelej", ocena: 5, komentar: "Stan blista, došli su tačno na vreme." },
-    { klIdx: 2, izIdx: 2, kat: "vodoinstalater", opis: "Curenje ispod sudopere, hitno.", loc: "Crveni Krst", ocena: 4, komentar: "Rešeno isti dan, korektna cena." },
-    { klIdx: 0, izIdx: 4, kat: "kupatila", opis: "Zamena pločica i sanitarija u kupatilu.", loc: "Medijana", ocena: 5, komentar: "Profesionalno, prema dogovorenom roku." },
-  ];
-
-  zavrseniPrimeri.forEach((p, idx) => {
-    const reqId = "req_demo_" + idx;
-    db.requests.push({
-      id: reqId,
-      klijentId: "kli_demo_" + p.klIdx,
-      kategorija: p.kat,
-      opis: p.opis,
-      lokacija: p.loc,
-      zeljeniTermin: "",
-      status: "zavrsen",
-      createdAt: kuNow(),
-      izabranaPonudaId: "off_demo_" + idx,
-    });
-    db.offers.push({
-      id: "off_demo_" + idx,
-      requestId: reqId,
-      izvodjacId: "izv_demo_" + p.izIdx,
-      poruka: "Mogu da izađem u dogovorenom terminu, javite se za detalje.",
-      createdAt: kuNow(),
-      status: "prihvacena",
-    });
-    db.ratings.push({
-      id: "rat_demo_" + idx,
-      requestId: reqId,
-      izvodjacId: "izv_demo_" + p.izIdx,
-      klijentId: "kli_demo_" + p.klIdx,
-      ocena: p.ocena,
-      komentar: p.komentar,
-      createdAt: kuNow(),
-    });
-  });
-
-  // Par otvorenih zahteva bez ponuda/sa ponudama, za realan prikaz table
-  db.requests.push({
-    id: "req_demo_open_1",
-    klijentId: "kli_demo_1",
-    kategorija: "ciscenje-redovno",
-    opis: "Redovno nedeljno čišćenje dvosobnog stana, oko 60m2.",
-    lokacija: "Medijana",
-    zeljeniTermin: "Fleksibilno, radnim danima",
-    status: "otvoren",
-    createdAt: kuNow(),
-    izabranaPonudaId: null,
-  });
-  db.requests.push({
-    id: "req_demo_open_2",
-    klijentId: "kli_demo_2",
-    kategorija: "kupatila",
-    opis: "Renoviranje manjeg kupatila, cca 4m2 — pločice, sanitarije, instalacije.",
-    lokacija: "Pantelej",
-    zeljeniTermin: "U naredna 2 meseca",
-    status: "otvoren",
-    createdAt: kuNow(),
-    izabranaPonudaId: null,
-  });
-  db.offers.push({
-    id: "off_demo_open_2a",
-    requestId: "req_demo_open_2",
-    izvodjacId: "izv_demo_4",
-    poruka: "Radim ovakve poslove redovno, mogu da dođem na pregled ove nedelje.",
-    createdAt: kuNow(),
-    status: "poslata",
-  });
-
-  return db;
+async function _kuFetchProfile(id) {
+  if (!id) return null;
+  const { data, error } = await KU_SUPABASE.from("profiles").select("*").eq("id", id).maybeSingle();
+  if (error) {
+    console.error("Greška pri učitavanju profila:", error.message);
+    return null;
+  }
+  return _kuMapProfile(data);
 }
 
 /* ---------------------- Javni API: KU.store ---------------------- */
 const KU = window.KU || {};
 KU.store = {
-  init() {
-    let db = kuLoadDb();
-    if (!db) {
-      db = kuSeedDb();
-      kuSaveDb(db);
+  async init() {
+    const { data, error } = await KU_SUPABASE.auth.getSession();
+    if (error) {
+      console.error("Greška pri proveri prijave:", error.message);
+      return;
     }
-    return db;
+    if (data && data.session) {
+      _kuCurrentUser = await _kuFetchProfile(data.session.user.id);
+    }
   },
 
-  resetDemo() {
-    localStorage.removeItem(KU_DB_KEY);
-    localStorage.removeItem(KU_SESSION_KEY);
-    this.init();
+  /* ---- Korisnici / prijava ---- */
+  async getUsers() {
+    const { data, error } = await KU_SUPABASE.from("profiles").select("*");
+    if (error) { console.error(error.message); return []; }
+    return (data || []).map(_kuMapProfile);
   },
 
-  _db() {
-    return kuLoadDb() || this.init();
+  async getUserById(id) {
+    return _kuFetchProfile(id);
   },
 
-  /* ---- Korisnici ---- */
-  getUsers() { return this._db().users; },
-  getUserById(id) { return this.getUsers().find((u) => u.id === id) || null; },
-  getUserByEmail(email) {
+  async getUserByEmail(email) {
     const e = (email || "").trim().toLowerCase();
-    return this.getUsers().find((u) => u.email.toLowerCase() === e) || null;
+    const { data, error } = await KU_SUPABASE.from("profiles").select("*").eq("email", e).maybeSingle();
+    if (error) return null;
+    return _kuMapProfile(data);
   },
 
-  registerUser({ role, ime, email, password, telefon, kategorije, bio }) {
-    const db = this._db();
-    if (this.getUserByEmail(email)) {
-      throw new Error("Nalog sa ovim email-om već postoji. Probaj da se prijaviš.");
+  async registerUser({ role, ime, email, password, telefon, kategorije, bio }) {
+    const cleanEmail = (email || "").trim().toLowerCase();
+    const { data, error } = await KU_SUPABASE.auth.signUp({ email: cleanEmail, password });
+    if (error) throw new Error(_kuAuthErrorMessage(error));
+    if (!data.user) throw new Error("Registracija nije uspela. Pokušaj ponovo.");
+    if (!data.session) {
+      // Projekat ima uključenu potvrdu email-a — nalog postoji, ali se ne
+      // može odmah koristiti. (Za MVP test preporučeno je isključiti ovu
+      // opciju u Supabase -> Authentication, vidi UPUTSTVO_SUPABASE.md.)
+      throw new Error("Nalog je napravljen, ali je potrebno prvo potvrditi email (proveri inbox), pa se onda prijaviti.");
     }
-    const user = {
-      id: kuUid("u"),
+
+    const row = {
+      id: data.user.id,
       role,
       ime: (ime || "").trim(),
-      email: (email || "").trim().toLowerCase(),
-      password, // NAPOMENA: čuvanje lozinke u localStorage je samo za demo/MVP prototip, ne za produkciju.
+      email: cleanEmail,
       telefon: (telefon || "").trim(),
-      kategorije: role === "izvodjac" ? (kategorije || []) : undefined,
-      bio: role === "izvodjac" ? (bio || "") : undefined,
-      createdAt: kuNow(),
-      demo: false,
+      kategorije: role === "izvodjac" ? (kategorije || []) : null,
+      bio: role === "izvodjac" ? (bio || "") : null,
     };
-    db.users.push(user);
-    kuSaveDb(db);
-    this.setSession(user.id);
-    return user;
+    const { data: profileRow, error: profileError } = await KU_SUPABASE
+      .from("profiles")
+      .insert(row)
+      .select()
+      .single();
+    if (profileError) {
+      throw new Error("Nalog za prijavu je napravljen, ali čuvanje profila nije uspelo: " + profileError.message);
+    }
+    _kuCurrentUser = _kuMapProfile(profileRow);
+    return _kuCurrentUser;
   },
 
-  updateUser(id, patch) {
-    const db = this._db();
-    const u = db.users.find((x) => x.id === id);
-    if (!u) return null;
-    Object.assign(u, patch);
-    kuSaveDb(db);
-    return u;
+  async updateUser(id, patch) {
+    const dbPatch = {};
+    if (patch.ime !== undefined) dbPatch.ime = patch.ime;
+    if (patch.telefon !== undefined) dbPatch.telefon = patch.telefon;
+    if (patch.bio !== undefined) dbPatch.bio = patch.bio;
+    if (patch.kategorije !== undefined) dbPatch.kategorije = patch.kategorije;
+    if (patch.godinaRodjenja !== undefined) dbPatch.godina_rodjenja = patch.godinaRodjenja;
+    if (patch.godineIskustva !== undefined) dbPatch.godine_iskustva = patch.godineIskustva;
+
+    const { data, error } = await KU_SUPABASE.from("profiles").update(dbPatch).eq("id", id).select().single();
+    if (error) throw new Error(error.message);
+    const mapped = _kuMapProfile(data);
+    if (_kuCurrentUser && _kuCurrentUser.id === id) _kuCurrentUser = mapped;
+    return mapped;
   },
 
-  login(email, password) {
-    const user = this.getUserByEmail(email);
-    if (!user || user.password !== password) return null;
-    this.setSession(user.id);
-    return user;
+  async login(email, password) {
+    const { data, error } = await KU_SUPABASE.auth.signInWithPassword({
+      email: (email || "").trim().toLowerCase(),
+      password,
+    });
+    if (error || !data.session) return null;
+    _kuCurrentUser = await _kuFetchProfile(data.session.user.id);
+    return _kuCurrentUser;
   },
 
-  logout() {
-    localStorage.removeItem(KU_SESSION_KEY);
+  async logout() {
+    await KU_SUPABASE.auth.signOut();
+    _kuCurrentUser = null;
   },
 
-  setSession(userId) {
-    localStorage.setItem(KU_SESSION_KEY, userId);
-  },
-
+  /* Sinhrono (bez await) — čita iz memorije, popunjeno u init()/login().
+     Zato SVAKA stranica mora prvo da uradi "await KU.ready" pre nego što
+     pozove ovo ili kuRequireAuth(). */
   currentUser() {
-    const id = localStorage.getItem(KU_SESSION_KEY);
-    if (!id) return null;
-    return this.getUserById(id);
+    return _kuCurrentUser;
   },
 
   /* ---- Zahtevi ---- */
-  getRequests() { return this._db().requests.slice().sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)); },
-  getRequestById(id) { return this.getRequests().find((r) => r.id === id) || null; },
-  getRequestsByKlijent(klijentId) { return this.getRequests().filter((r) => r.klijentId === klijentId); },
+  async getRequests() {
+    const { data, error } = await KU_SUPABASE.from("requests").select("*").order("created_at", { ascending: false });
+    if (error) { console.error(error.message); return []; }
+    return (data || []).map(_kuMapRequest);
+  },
 
-  createRequest({ klijentId, kategorija, opis, lokacija, zeljeniTermin }) {
-    const db = this._db();
-    const req = {
-      id: kuUid("req"),
-      klijentId,
+  async getRequestById(id) {
+    if (!id) return null;
+    const { data, error } = await KU_SUPABASE.from("requests").select("*").eq("id", id).maybeSingle();
+    if (error) { console.error(error.message); return null; }
+    return _kuMapRequest(data);
+  },
+
+  async getRequestsByKlijent(klijentId) {
+    const { data, error } = await KU_SUPABASE
+      .from("requests")
+      .select("*")
+      .eq("klijent_id", klijentId)
+      .order("created_at", { ascending: false });
+    if (error) { console.error(error.message); return []; }
+    return (data || []).map(_kuMapRequest);
+  },
+
+  async createRequest({ klijentId, kategorija, opis, lokacija, zeljeniTermin }) {
+    const row = {
+      klijent_id: klijentId,
       kategorija,
       opis: (opis || "").trim(),
       lokacija,
-      zeljeniTermin: (zeljeniTermin || "").trim(),
+      zeljeni_termin: (zeljeniTermin || "").trim(),
       status: "otvoren",
-      createdAt: kuNow(),
-      izabranaPonudaId: null,
     };
-    db.requests.push(req);
-    kuSaveDb(db);
-    return req;
+    const { data, error } = await KU_SUPABASE.from("requests").insert(row).select().single();
+    if (error) throw new Error(error.message);
+    return _kuMapRequest(data);
   },
 
-  cancelRequest(id) {
-    const db = this._db();
-    const r = db.requests.find((x) => x.id === id);
-    if (!r) return null;
-    r.status = "otkazan";
-    kuSaveDb(db);
-    return r;
+  async cancelRequest(id) {
+    const { data, error } = await KU_SUPABASE.from("requests").update({ status: "otkazan" }).eq("id", id).select().single();
+    if (error) { console.error(error.message); return null; }
+    return _kuMapRequest(data);
   },
 
-  completeRequest(id) {
-    const db = this._db();
-    const r = db.requests.find((x) => x.id === id);
-    if (!r) return null;
-    r.status = "zavrsen";
-    kuSaveDb(db);
-    return r;
+  async completeRequest(id) {
+    const { data, error } = await KU_SUPABASE.from("requests").update({ status: "zavrsen" }).eq("id", id).select().single();
+    if (error) { console.error(error.message); return null; }
+    return _kuMapRequest(data);
   },
 
   /* ---- Ponude izvođača na zahteve ---- */
-  getOffers() { return this._db().offers; },
-  getOffersByRequest(requestId) {
-    return this.getOffers()
-      .filter((o) => o.requestId === requestId)
-      .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
-  },
-  getOffersByIzvodjac(izvodjacId) {
-    return this.getOffers().filter((o) => o.izvodjacId === izvodjacId);
-  },
-  hasOffered(requestId, izvodjacId) {
-    return this.getOffers().some((o) => o.requestId === requestId && o.izvodjacId === izvodjacId);
+  async getOffers() {
+    const { data, error } = await KU_SUPABASE.from("offers").select("*");
+    if (error) { console.error(error.message); return []; }
+    return (data || []).map(_kuMapOffer);
   },
 
-  createOffer({ requestId, izvodjacId, poruka }) {
-    const db = this._db();
-    const offer = {
-      id: kuUid("off"),
-      requestId,
-      izvodjacId,
+  async getOffersByRequest(requestId) {
+    const { data, error } = await KU_SUPABASE
+      .from("offers")
+      .select("*")
+      .eq("request_id", requestId)
+      .order("created_at", { ascending: false });
+    if (error) { console.error(error.message); return []; }
+    return (data || []).map(_kuMapOffer);
+  },
+
+  async getOffersByIzvodjac(izvodjacId) {
+    const { data, error } = await KU_SUPABASE
+      .from("offers")
+      .select("*")
+      .eq("izvodjac_id", izvodjacId)
+      .order("created_at", { ascending: false });
+    if (error) { console.error(error.message); return []; }
+    return (data || []).map(_kuMapOffer);
+  },
+
+  async hasOffered(requestId, izvodjacId) {
+    const { data, error } = await KU_SUPABASE
+      .from("offers")
+      .select("id")
+      .eq("request_id", requestId)
+      .eq("izvodjac_id", izvodjacId)
+      .maybeSingle();
+    if (error) return false;
+    return !!data;
+  },
+
+  async createOffer({ requestId, izvodjacId, poruka }) {
+    const row = {
+      request_id: requestId,
+      izvodjac_id: izvodjacId,
       poruka: (poruka || "").trim(),
-      createdAt: kuNow(),
       status: "poslata",
     };
-    db.offers.push(offer);
-    kuSaveDb(db);
-    return offer;
+    const { data, error } = await KU_SUPABASE.from("offers").insert(row).select().single();
+    if (error) throw new Error(error.message);
+    return _kuMapOffer(data);
   },
 
-  acceptOffer(offerId) {
-    const db = this._db();
-    const offer = db.offers.find((o) => o.id === offerId);
-    if (!offer) return null;
-    offer.status = "prihvacena";
-    db.offers
-      .filter((o) => o.requestId === offer.requestId && o.id !== offerId)
-      .forEach((o) => { o.status = "odbijena"; });
-    const req = db.requests.find((r) => r.id === offer.requestId);
-    if (req) {
-      req.status = "u_toku";
-      req.izabranaPonudaId = offerId;
-    }
-    kuSaveDb(db);
-    return offer;
+  async acceptOffer(offerId) {
+    const { data: offer, error: offerErr } = await KU_SUPABASE
+      .from("offers")
+      .update({ status: "prihvacena" })
+      .eq("id", offerId)
+      .select()
+      .single();
+    if (offerErr || !offer) throw new Error(offerErr ? offerErr.message : "Ponuda nije pronađena.");
+
+    await KU_SUPABASE
+      .from("offers")
+      .update({ status: "odbijena" })
+      .eq("request_id", offer.request_id)
+      .neq("id", offerId);
+
+    await KU_SUPABASE
+      .from("requests")
+      .update({ status: "u_toku", izabrana_ponuda_id: offerId })
+      .eq("id", offer.request_id);
+
+    return _kuMapOffer(offer);
   },
 
   /* ---- Ocene ---- */
-  getRatings() { return this._db().ratings; },
-  getRatingsByIzvodjac(izvodjacId) {
-    return this.getRatings()
-      .filter((r) => r.izvodjacId === izvodjacId)
-      .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
-  },
-  hasRated(requestId) {
-    return this.getRatings().some((r) => r.requestId === requestId);
+  async getRatings() {
+    const { data, error } = await KU_SUPABASE.from("ratings").select("*");
+    if (error) { console.error(error.message); return []; }
+    return (data || []).map(_kuMapRating);
   },
 
-  addRating({ requestId, izvodjacId, klijentId, ocena, komentar }) {
-    const db = this._db();
-    const rating = {
-      id: kuUid("rat"),
-      requestId,
-      izvodjacId,
-      klijentId,
+  async getRatingsByIzvodjac(izvodjacId) {
+    const { data, error } = await KU_SUPABASE
+      .from("ratings")
+      .select("*")
+      .eq("izvodjac_id", izvodjacId)
+      .order("created_at", { ascending: false });
+    if (error) { console.error(error.message); return []; }
+    return (data || []).map(_kuMapRating);
+  },
+
+  async hasRated(requestId) {
+    const { data, error } = await KU_SUPABASE.from("ratings").select("id").eq("request_id", requestId).maybeSingle();
+    if (error) return false;
+    return !!data;
+  },
+
+  async addRating({ requestId, izvodjacId, klijentId, ocena, komentar }) {
+    const row = {
+      request_id: requestId,
+      izvodjac_id: izvodjacId,
+      klijent_id: klijentId,
       ocena: Number(ocena),
       komentar: (komentar || "").trim(),
-      createdAt: kuNow(),
     };
-    db.ratings.push(rating);
-    const req = db.requests.find((r) => r.id === requestId);
-    if (req) req.status = "zavrsen";
-    kuSaveDb(db);
-    return rating;
+    const { data, error } = await KU_SUPABASE.from("ratings").insert(row).select().single();
+    if (error) throw new Error(error.message);
+    // Isto kao u staroj verziji: dodavanje ocene garantuje da je zahtev
+    // označen kao završen (ako slučajno već nije).
+    await KU_SUPABASE.from("requests").update({ status: "zavrsen" }).eq("id", requestId);
+    return _kuMapRating(data);
   },
 
   /* ---- Izvedene statistike ---- */
-  providerStats(izvodjacId) {
-    const ratings = this.getRatingsByIzvodjac(izvodjacId);
+  async providerStats(izvodjacId) {
+    const ratings = await this.getRatingsByIzvodjac(izvodjacId);
     const count = ratings.length;
     const avg = count ? ratings.reduce((s, r) => s + r.ocena, 0) / count : 0;
-    const poslovi = this.getOffers().filter(
-      (o) => o.izvodjacId === izvodjacId && o.status === "prihvacena"
-    ).length;
-    return { avg, count, poslovi };
+    const { count: poslovi } = await KU_SUPABASE
+      .from("offers")
+      .select("id", { count: "exact", head: true })
+      .eq("izvodjac_id", izvodjacId)
+      .eq("status", "prihvacena");
+    return { avg, count, poslovi: poslovi || 0 };
   },
 
-  getIzvodjaciByKategorija(kategorijaId) {
-    return this.getUsers().filter(
-      (u) => u.role === "izvodjac" && (u.kategorije || []).includes(kategorijaId)
-    );
+  async getIzvodjaciByKategorija(kategorijaId) {
+    const { data, error } = await KU_SUPABASE
+      .from("profiles")
+      .select("*")
+      .eq("role", "izvodjac")
+      .contains("kategorije", [kategorijaId]);
+    if (error) { console.error(error.message); return []; }
+    return (data || []).map(_kuMapProfile);
   },
 };
 
 window.KU = KU;
-KU.store.init();
+KU.ready = KU.store.init();
