@@ -3,9 +3,10 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Zahtev — Klik usluga</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Ccircle cx=%2732%27 cy=%2732%27 r=%2732%27 fill=%27%230b4f4a%27/%3E%3Ctext x=%2732%27 y=%2742%27 font-size=%2732%27 font-family=%27Arial%2C sans-serif%27 font-weight=%27700%27 fill=%27%23e0642a%27 text-anchor=%27middle%27%3EK%3C/text%3E%3C/svg%3E" />
+<title>Zahtev — Svenaklik</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Ccircle cx=%2732%27 cy=%2732%27 r=%2732%27 fill=%27%230b4f4a%27/%3E%3Ctext x=%2732%27 y=%2742%27 font-size=%2732%27 font-family=%27Arial%2C sans-serif%27 font-weight=%27700%27 fill=%27%23e0642a%27 text-anchor=%27middle%27%3ES%3C/text%3E%3C/svg%3E" />
 <link rel="stylesheet" href="css/style.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 <div id="ku-demo-banner" class="demo-banner"></div>
@@ -23,7 +24,10 @@
 <script src="js/store.js"></script>
 <script src="js/common.js"></script>
 <script>
+(async () => {
+  await KU.ready;
   const user = kuRequireAuth(null); // bilo koja uloga, samo da je prijavljen
+  if (!user) return;
   const reqId = kuQueryParam("id");
   const mount = document.getElementById("ku-content");
 
@@ -35,17 +39,17 @@
     return "";
   }
 
-  function render() {
-    const req = KU.store.getRequestById(reqId);
+  async function render() {
+    const req = await KU.store.getRequestById(reqId);
     if (!req) {
       mount.innerHTML = `<div class="empty-state card"><h3>Zahtev nije pronađen</h3><p>Možda je uklonjen ili link nije ispravan.</p></div>`;
       return;
     }
 
-    const client = KU.store.getUserById(req.klijentId);
+    const client = await KU.store.getUserById(req.klijentId);
     const isOwner = user.role === "klijent" && user.id === req.klijentId;
     const isProvider = user.role === "izvodjac";
-    const offers = KU.store.getOffersByRequest(req.id);
+    const offers = await KU.store.getOffersByRequest(req.id);
     const acceptedOffer = offers.find((o) => o.status === "prihvacena");
     const myOffer = isProvider ? offers.find((o) => o.izvodjacId === user.id) : null;
 
@@ -72,10 +76,11 @@
         if (offers.length === 0) {
           html += `<div class="empty-state card"><div class="icon-circle">⏳</div><h3>Još nema ponuda</h3><p>Izvođači u tvojoj kategoriji i lokaciji vide zahtev — obično je potrebno malo vremena da se jave.</p></div>`;
         } else {
-          html += offers.map((o) => offerCardForClient(o)).join("");
+          const offerCards = await Promise.all(offers.map((o) => offerCardForClient(o)));
+          html += offerCards.join("");
         }
       } else if (req.status === "u_toku" && acceptedOffer) {
-        const izv = KU.store.getUserById(acceptedOffer.izvodjacId);
+        const izv = await KU.store.getUserById(acceptedOffer.izvodjacId);
         html += `
           <div class="card" style="border-color:var(--color-primary-light);">
             <h3 class="mt-0">Izabrao/la si izvođača</h3>
@@ -91,8 +96,8 @@
             <button class="btn btn-secondary mt-3" id="ku-complete-btn" type="button">Označi posao kao završen</button>
           </div>`;
       } else if (req.status === "zavrsen") {
-        const izv = acceptedOffer ? KU.store.getUserById(acceptedOffer.izvodjacId) : null;
-        if (izv && !KU.store.hasRated(req.id)) {
+        const izv = acceptedOffer ? await KU.store.getUserById(acceptedOffer.izvodjacId) : null;
+        if (izv && !(await KU.store.hasRated(req.id))) {
           html += ratingFormHtml(izv);
         } else if (izv) {
           html += `<div class="success-box">Posao je označen kao završen i ocenjen. Hvala!</div>`;
@@ -142,9 +147,9 @@
     attachHandlers(req);
   }
 
-  function offerCardForClient(o) {
-    const izv = KU.store.getUserById(o.izvodjacId);
-    const stats = KU.store.providerStats(izv.id);
+  async function offerCardForClient(o) {
+    const izv = await KU.store.getUserById(o.izvodjacId);
+    const stats = await KU.store.providerStats(izv.id);
     return `
       <div class="card mt-4">
         <div class="flex-between" style="flex-wrap:wrap; gap:12px;">
@@ -215,45 +220,46 @@
 
   function attachHandlers(req) {
     const cancelBtn = document.getElementById("ku-cancel-btn");
-    if (cancelBtn) cancelBtn.addEventListener("click", () => {
+    if (cancelBtn) cancelBtn.addEventListener("click", async () => {
       if (confirm("Sigurno želiš da otkažeš ovaj zahtev?")) {
-        KU.store.cancelRequest(req.id);
-        render();
+        await KU.store.cancelRequest(req.id);
+        render().catch((err) => { console.error(err); kuToast("Greška: " + err.message); });
       }
     });
 
     document.querySelectorAll(".ku-accept-offer").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        KU.store.acceptOffer(btn.dataset.offer);
+      btn.addEventListener("click", async () => {
+        btn.disabled = true;
+        await KU.store.acceptOffer(btn.dataset.offer);
         kuToast("Izvođač je izabran — kontakt je otključan.");
-        render();
+        render().catch((err) => { console.error(err); kuToast("Greška: " + err.message); });
       });
     });
 
     const offerForm = document.getElementById("ku-offer-form");
-    if (offerForm) offerForm.addEventListener("submit", (e) => {
+    if (offerForm) offerForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       const poruka = document.getElementById("ku-offer-msg").value.trim();
       if (!poruka) return;
-      KU.store.createOffer({ requestId: req.id, izvodjacId: user.id, poruka });
+      await KU.store.createOffer({ requestId: req.id, izvodjacId: user.id, poruka });
       kuToast("Ponuda poslata!");
-      render();
+      render().catch((err) => { console.error(err); kuToast("Greška: " + err.message); });
     });
 
     const completeBtn = document.getElementById("ku-complete-btn");
-    if (completeBtn) completeBtn.addEventListener("click", () => {
-      KU.store.completeRequest(req.id);
-      render();
+    if (completeBtn) completeBtn.addEventListener("click", async () => {
+      await KU.store.completeRequest(req.id);
+      render().catch((err) => { console.error(err); kuToast("Greška: " + err.message); });
     });
 
     renderStarPicker();
     const ratingForm = document.getElementById("ku-rating-form");
-    if (ratingForm) ratingForm.addEventListener("submit", (e) => {
+    if (ratingForm) ratingForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       const ocena = document.getElementById("ku-rating-value").value;
       const komentar = document.getElementById("ku-rating-comment").value.trim();
-      const acceptedOffer = KU.store.getOffersByRequest(req.id).find((o) => o.status === "prihvacena");
-      KU.store.addRating({
+      const acceptedOffer = (await KU.store.getOffersByRequest(req.id)).find((o) => o.status === "prihvacena");
+      await KU.store.addRating({
         requestId: req.id,
         izvodjacId: acceptedOffer.izvodjacId,
         klijentId: user.id,
@@ -261,14 +267,16 @@
         komentar,
       });
       kuToast("Hvala na oceni!");
-      render();
+      render().catch((err) => { console.error(err); kuToast("Greška: " + err.message); });
     });
   }
 
-  if (user && reqId) render();
-  if (user && !reqId) {
+  if (reqId) {
+    await render();
+  } else {
     mount.innerHTML = `<div class="empty-state card"><h3>Nedostaje ID zahteva</h3></div>`;
   }
+})().catch((err) => { console.error(err); kuToast("Greška: " + err.message); });
 </script>
 </body>
 </html>
