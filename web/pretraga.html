@@ -3,9 +3,10 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Pronađi izvođača — Klik usluga</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Ccircle cx=%2732%27 cy=%2732%27 r=%2732%27 fill=%27%230b4f4a%27/%3E%3Ctext x=%2732%27 y=%2742%27 font-size=%2732%27 font-family=%27Arial%2C sans-serif%27 font-weight=%27700%27 fill=%27%23e0642a%27 text-anchor=%27middle%27%3EK%3C/text%3E%3C/svg%3E" />
+<title>Pronađi izvođača — Svenaklik</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Ccircle cx=%2732%27 cy=%2732%27 r=%2732%27 fill=%27%230b4f4a%27/%3E%3Ctext x=%2732%27 y=%2742%27 font-size=%2732%27 font-family=%27Arial%2C sans-serif%27 font-weight=%27700%27 fill=%27%23e0642a%27 text-anchor=%27middle%27%3ES%3C/text%3E%3C/svg%3E" />
 <link rel="stylesheet" href="css/style.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 <div id="ku-demo-banner" class="demo-banner"></div>
@@ -30,17 +31,20 @@
 <script src="js/store.js"></script>
 <script src="js/common.js"></script>
 <script>
+(async () => {
+  await KU.ready;
+
   function fillFilter() {
     const sel = document.getElementById("ku-filter-kat");
     sel.innerHTML =
       '<option value="">Sve kategorije</option>' +
       KU_CONFIG.KATEGORIJE.map((k) => `<option value="${k.id}">${kuEscape(k.naziv)}</option>`).join("");
-    sel.addEventListener("change", render);
+    sel.addEventListener("change", () => render().catch((err) => { console.error(err); kuToast("Greška: " + err.message); }));
   }
 
-  function render() {
+  async function render() {
     const katFilter = document.getElementById("ku-filter-kat").value;
-    let providers = KU.store.getUsers().filter((u) => u.role === "izvodjac");
+    let providers = (await KU.store.getUsers()).filter((u) => u.role === "izvodjac");
     if (katFilter) providers = providers.filter((p) => (p.kategorije || []).includes(katFilter));
 
     const mount = document.getElementById("ku-providers-list");
@@ -49,8 +53,8 @@
       return;
     }
 
-    mount.innerHTML = providers.map((p) => {
-      const stats = KU.store.providerStats(p.id);
+    const cards = await Promise.all(providers.map(async (p) => {
+      const stats = await KU.store.providerStats(p.id);
       return `
         <a href="profil.html?id=${p.id}" class="card card-hover card-link">
           <div class="flex gap-3" style="align-items:center;">
@@ -67,11 +71,13 @@
             ${(p.kategorije || []).slice(0, 3).map((k) => `<span class="badge" style="background:var(--color-primary-lighter); color:var(--color-primary); margin-right:4px; margin-bottom:4px; display:inline-block;">${kuEscape(kuKategorijaNaziv(k))}</span>`).join("")}
           </div>
         </a>`;
-    }).join("");
+    }));
+    mount.innerHTML = cards.join("");
   }
 
   fillFilter();
-  render();
+  await render();
+})().catch((err) => { console.error(err); kuToast("Greška: " + err.message); });
 </script>
 </body>
 </html>
