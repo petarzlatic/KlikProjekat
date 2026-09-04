@@ -3,9 +3,10 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Moj profil — Klik usluga</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Ccircle cx=%2732%27 cy=%2732%27 r=%2732%27 fill=%27%230b4f4a%27/%3E%3Ctext x=%2732%27 y=%2742%27 font-size=%2732%27 font-family=%27Arial%2C sans-serif%27 font-weight=%27700%27 fill=%27%23e0642a%27 text-anchor=%27middle%27%3EK%3C/text%3E%3C/svg%3E" />
+<title>Moj profil — Svenaklik</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Ccircle cx=%2732%27 cy=%2732%27 r=%2732%27 fill=%27%230b4f4a%27/%3E%3Ctext x=%2732%27 y=%2742%27 font-size=%2732%27 font-family=%27Arial%2C sans-serif%27 font-weight=%27700%27 fill=%27%23e0642a%27 text-anchor=%27middle%27%3ES%3C/text%3E%3C/svg%3E" />
 <link rel="stylesheet" href="css/style.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 <div id="ku-demo-banner" class="demo-banner"></div>
@@ -47,7 +48,10 @@
 <script src="js/store.js"></script>
 <script src="js/common.js"></script>
 <script>
+(async () => {
+  await KU.ready;
   const user = kuRequireAuth(null);
+  if (!user) return;
 
   function renderKategorijeCheckboxes(selected) {
     const mount = document.getElementById("ku-kategorije-checkboxes");
@@ -68,9 +72,9 @@
     }
   }
 
-  if (user) fillForm();
+  fillForm();
 
-  document.getElementById("ku-profile-form").addEventListener("submit", (e) => {
+  document.getElementById("ku-profile-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const patch = {
       ime: document.getElementById("ime").value.trim(),
@@ -80,10 +84,15 @@
       patch.bio = document.getElementById("bio").value.trim();
       patch.kategorije = Array.from(document.querySelectorAll(".ku-kat-cb:checked")).map((c) => c.value);
     }
-    KU.store.updateUser(user.id, patch);
-    document.getElementById("ku-success").style.display = "block";
-    kuToast("Profil sačuvan.");
+    try {
+      await KU.store.updateUser(user.id, patch);
+      document.getElementById("ku-success").style.display = "block";
+      kuToast("Profil sačuvan.");
+    } catch (err) {
+      kuToast("Greška: " + err.message);
+    }
   });
+})();
 </script>
 </body>
 </html>
