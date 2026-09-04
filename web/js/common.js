@@ -1,5 +1,5 @@
 /* =========================================================
-   KLIK USLUGA — Zajedničke funkcije za sve stranice
+   SVENAKLIK — Zajedničke funkcije za sve stranice
    (header/footer render, zaštita stranica po ulozi, pomoćne
    funkcije za prikaz zvezdica, inicijala, toast poruka...)
    ========================================================= */
@@ -79,7 +79,7 @@ function kuRenderHeader(activeNav) {
 
   mount.innerHTML = `
     <div class="inner">
-      <a class="logo" href="index.html">Klik<span class="dot">•</span>usluga</a>
+      <a class="logo" href="index.html">Svena<span class="dot">•</span>klik</a>
       <nav class="nav-links">
         <a class="navlink" href="kako-radi.html">Kako radi</a>
         <a class="navlink" href="pretraga.html">Pronađi izvođača</a>
@@ -104,7 +104,7 @@ function kuRenderFooter() {
   mount.innerHTML = `
     <div class="container foot-grid">
       <div>
-        <div class="logo" style="color:#fff;">Klik<span class="dot">•</span>usluga</div>
+        <div class="logo" style="color:#fff;">Svena<span class="dot">•</span>klik</div>
         <p class="small" style="color:#a9c4c0; max-width:320px; margin-top:8px;">
           Digitalna platforma koja povezuje zanatlije i servise za čišćenje sa korisnicima.
           Test tržište: Niš, Srbija.
@@ -122,7 +122,7 @@ function kuRenderFooter() {
         <div class="small" style="color:#fff; font-weight:700; margin-bottom:8px;">O projektu</div>
         <div class="flex-col small" style="gap:6px;">
           <span>MVP verzija — u razvoju</span>
-          <span>© ${new Date().getFullYear()} Klik usluga</span>
+          <span>© ${new Date().getFullYear()} Svenaklik</span>
         </div>
       </div>
     </div>`;
@@ -131,16 +131,11 @@ function kuRenderFooter() {
 function kuRenderDemoBanner() {
   const mount = document.getElementById("ku-demo-banner");
   if (!mount) return;
-  mount.innerHTML = `Ovo je demo verzija sa izmišljenim podacima radi prikaza funkcionalnosti. <button id="ku-reset-demo" class="btn btn-ghost btn-sm" type="button" style="text-decoration:underline; padding:0 4px;">Resetuj demo podatke</button>`;
-  const btn = document.getElementById("ku-reset-demo");
-  if (btn) {
-    btn.addEventListener("click", () => {
-      if (confirm("Ovo briše sve podatke unete u ovoj demo sesiji i vraća početne demo primere. Nastaviti?")) {
-        KU.store.resetDemo();
-        window.location.href = "index.html";
-      }
-    });
-  }
+  // Napomena (Dan 2/3.9.): sajt sad radi preko prave, zajedničke baze
+  // (Supabase) — nalozi i zahtevi koje ovde napraviš su stvarni i vide ih
+  // svi koji koriste sajt, zato više nema dugmeta za "reset demo podataka"
+  // (to bi obrisalo tuđe stvarne podatke, ne samo tvoje).
+  mount.innerHTML = `Rana test verzija — u razvoju. Podaci uneti ovde su stvarni i čuvaju se u zajedničkoj bazi.`;
 }
 
 /* Poziva se na vrhu stranica koje zahtevaju prijavu.
@@ -159,7 +154,8 @@ function kuRequireAuth(role) {
   return user;
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+  await KU.ready; // sačekaj da se proveri da li je neko već prijavljen
   kuRenderDemoBanner();
   kuRenderHeader();
   kuRenderFooter();
