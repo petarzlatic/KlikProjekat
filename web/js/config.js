@@ -13,7 +13,7 @@
 
 const KU_CONFIG = {
   grad: "Niš",
-  nazivPlatforme: "Svenaklik",
+  nazivPlatforme: "SveNaKlik.rs",
 
   // Podaci za povezivanje sa pravom bazom (Supabase). "anonKey" je JAVNI
   // ključ napravljen baš da se koristi u kodu sajta koji svi vide — nije
