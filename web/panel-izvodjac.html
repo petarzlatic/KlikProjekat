@@ -3,9 +3,10 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Dostupni zahtevi — Klik usluga</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Ccircle cx=%2732%27 cy=%2732%27 r=%2732%27 fill=%27%230b4f4a%27/%3E%3Ctext x=%2732%27 y=%2742%27 font-size=%2732%27 font-family=%27Arial%2C sans-serif%27 font-weight=%27700%27 fill=%27%23e0642a%27 text-anchor=%27middle%27%3EK%3C/text%3E%3C/svg%3E" />
+<title>Dostupni zahtevi — Svenaklik</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Ccircle cx=%2732%27 cy=%2732%27 r=%2732%27 fill=%27%230b4f4a%27/%3E%3Ctext x=%2732%27 y=%2742%27 font-size=%2732%27 font-family=%27Arial%2C sans-serif%27 font-weight=%27700%27 fill=%27%23e0642a%27 text-anchor=%27middle%27%3ES%3C/text%3E%3C/svg%3E" />
 <link rel="stylesheet" href="css/style.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 <div id="ku-demo-banner" class="demo-banner"></div>
@@ -46,7 +47,10 @@
 <script src="js/store.js"></script>
 <script src="js/common.js"></script>
 <script>
+(async () => {
+  await KU.ready;
   const user = kuRequireAuth("izvodjac");
+  if (!user) return;
 
   document.querySelectorAll(".tab-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -72,12 +76,12 @@
     locSelect.addEventListener("change", renderOpen);
   }
 
-  function renderOpen() {
+  async function renderOpen() {
     const katFilter = document.getElementById("ku-filter-kat").value;
     const locFilter = document.getElementById("ku-filter-loc").value;
     const myKats = user.kategorije || [];
 
-    let requests = KU.store.getRequests().filter((r) => r.status === "otvoren" && myKats.includes(r.kategorija));
+    let requests = (await KU.store.getRequests()).filter((r) => r.status === "otvoren" && myKats.includes(r.kategorija));
     if (katFilter) requests = requests.filter((r) => r.kategorija === katFilter);
     if (locFilter) requests = requests.filter((r) => r.lokacija === locFilter);
 
@@ -92,9 +96,9 @@
       return;
     }
 
-    mount.innerHTML = requests.map((r) => {
-      const client = KU.store.getUserById(r.klijentId);
-      const alreadyOffered = KU.store.hasOffered(r.id, user.id);
+    const cards = await Promise.all(requests.map(async (r) => {
+      const client = await KU.store.getUserById(r.klijentId);
+      const alreadyOffered = await KU.store.hasOffered(r.id, user.id);
       return `
         <div class="card card-hover mt-4">
           <div class="flex-between" style="flex-wrap:wrap; gap:8px;">
@@ -111,11 +115,12 @@
               : `<a class="btn btn-primary btn-sm" href="zahtev.html?id=${r.id}#ponudi">Javi se</a>`}
           </div>
         </div>`;
-    }).join("");
+    }));
+    mount.innerHTML = cards.join("");
   }
 
-  function renderMyOffers() {
-    const offers = KU.store.getOffersByIzvodjac(user.id).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  async function renderMyOffers() {
+    const offers = (await KU.store.getOffersByIzvodjac(user.id)).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
     const mount = document.getElementById("ku-my-offers-list");
     if (offers.length === 0) {
       mount.innerHTML = `
@@ -126,8 +131,8 @@
         </div>`;
       return;
     }
-    mount.innerHTML = offers.map((o) => {
-      const req = KU.store.getRequestById(o.requestId);
+    const cards = await Promise.all(offers.map(async (o) => {
+      const req = await KU.store.getRequestById(o.requestId);
       if (!req) return "";
       let statusHtml = '<span class="badge badge-pending">Čeka odgovor</span>';
       if (o.status === "prihvacena") statusHtml = '<span class="badge badge-open">Prihvaćena — imaš kontakt</span>';
@@ -143,13 +148,15 @@
           </div>
           <p class="small mt-2 mb-0">Tvoja poruka: „${kuEscape(o.poruka)}"</p>
         </a>`;
-    }).join("");
+    }));
+    mount.innerHTML = cards.join("");
   }
 
   document.getElementById("ku-user-ime").textContent = user ? user.ime.split(" ")[0] : "";
   fillFilters();
-  renderOpen();
-  renderMyOffers();
+  await renderOpen();
+  await renderMyOffers();
+})().catch((err) => { console.error(err); kuToast("Greška: " + err.message); });
 </script>
 </body>
 </html>
