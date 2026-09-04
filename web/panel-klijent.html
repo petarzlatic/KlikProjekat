@@ -3,9 +3,10 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Moji zahtevi — Klik usluga</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Ccircle cx=%2732%27 cy=%2732%27 r=%2732%27 fill=%27%230b4f4a%27/%3E%3Ctext x=%2732%27 y=%2742%27 font-size=%2732%27 font-family=%27Arial%2C sans-serif%27 font-weight=%27700%27 fill=%27%23e0642a%27 text-anchor=%27middle%27%3EK%3C/text%3E%3C/svg%3E" />
+<title>Moji zahtevi — Svenaklik</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Ccircle cx=%2732%27 cy=%2732%27 r=%2732%27 fill=%27%230b4f4a%27/%3E%3Ctext x=%2732%27 y=%2742%27 font-size=%2732%27 font-family=%27Arial%2C sans-serif%27 font-weight=%27700%27 fill=%27%23e0642a%27 text-anchor=%27middle%27%3ES%3C/text%3E%3C/svg%3E" />
 <link rel="stylesheet" href="css/style.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 <div id="ku-demo-banner" class="demo-banner"></div>
@@ -31,7 +32,10 @@
 <script src="js/store.js"></script>
 <script src="js/common.js"></script>
 <script>
+(async () => {
+  await KU.ready;
   const user = kuRequireAuth("klijent");
+  if (!user) return;
 
   function statusBadge(status) {
     if (status === "otvoren") return '<span class="badge badge-open">Otvoren — čeka ponude</span>';
@@ -41,11 +45,10 @@
     return "";
   }
 
-  function render() {
-    if (!user) return;
+  async function render() {
     document.getElementById("ku-user-ime").textContent = user.ime.split(" ")[0];
 
-    const requests = KU.store.getRequestsByKlijent(user.id);
+    const requests = await KU.store.getRequestsByKlijent(user.id);
     const mount = document.getElementById("ku-requests-list");
 
     if (requests.length === 0) {
@@ -59,9 +62,9 @@
       return;
     }
 
-    mount.innerHTML = requests.map((r) => {
-      const offers = KU.store.getOffersByRequest(r.id);
-      const needsRating = r.status === "u_toku" || (r.status === "zavrsen" && !KU.store.hasRated(r.id));
+    const cards = await Promise.all(requests.map(async (r) => {
+      const offers = await KU.store.getOffersByRequest(r.id);
+      const rated = r.status === "zavrsen" ? await KU.store.hasRated(r.id) : false;
       return `
         <a class="card card-hover card-link mt-4" href="zahtev.html?id=${r.id}" style="display:block;">
           <div class="flex-between" style="flex-wrap:wrap; gap:8px;">
@@ -74,13 +77,15 @@
           <p class="small mt-2 mb-0">${kuEscape(r.lokacija)} · objavljeno ${kuFormatDate(r.createdAt)}</p>
           <p class="small mt-2 mb-0">
             ${offers.length === 0 ? "Još nema ponuda" : offers.length + (offers.length === 1 ? " ponuda pristigla" : " ponude pristiglo")}
-            ${r.status === "zavrsen" && KU.store.hasRated(r.id) ? " · ocenjeno ✓" : ""}
+            ${rated ? " · ocenjeno ✓" : ""}
           </p>
         </a>`;
-    }).join("");
+    }));
+    mount.innerHTML = cards.join("");
   }
 
-  render();
+  await render();
+})().catch((err) => { console.error(err); kuToast("Greška: " + err.message); });
 </script>
 </body>
 </html>
