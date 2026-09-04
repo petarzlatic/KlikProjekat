@@ -3,9 +3,10 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Profil izvođača — Klik usluga</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Ccircle cx=%2732%27 cy=%2732%27 r=%2732%27 fill=%27%230b4f4a%27/%3E%3Ctext x=%2732%27 y=%2742%27 font-size=%2732%27 font-family=%27Arial%2C sans-serif%27 font-weight=%27700%27 fill=%27%23e0642a%27 text-anchor=%27middle%27%3EK%3C/text%3E%3C/svg%3E" />
+<title>Profil izvođača — Svenaklik</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Ccircle cx=%2732%27 cy=%2732%27 r=%2732%27 fill=%27%230b4f4a%27/%3E%3Ctext x=%2732%27 y=%2742%27 font-size=%2732%27 font-family=%27Arial%2C sans-serif%27 font-weight=%27700%27 fill=%27%23e0642a%27 text-anchor=%27middle%27%3ES%3C/text%3E%3C/svg%3E" />
 <link rel="stylesheet" href="css/style.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 <div id="ku-demo-banner" class="demo-banner"></div>
@@ -21,17 +22,19 @@
 <script src="js/store.js"></script>
 <script src="js/common.js"></script>
 <script>
+(async () => {
+  await KU.ready;
   const izvId = kuQueryParam("id");
   const mount = document.getElementById("ku-content");
 
-  function render() {
-    const izv = KU.store.getUserById(izvId);
+  async function render() {
+    const izv = await KU.store.getUserById(izvId);
     if (!izv || izv.role !== "izvodjac") {
       mount.innerHTML = `<div class="empty-state card"><h3>Profil nije pronađen</h3></div>`;
       return;
     }
-    const stats = KU.store.providerStats(izv.id);
-    const ratings = KU.store.getRatingsByIzvodjac(izv.id);
+    const stats = await KU.store.providerStats(izv.id);
+    const ratings = await KU.store.getRatingsByIzvodjac(izv.id);
 
     let html = `
       <div class="card">
@@ -58,8 +61,8 @@
     if (ratings.length === 0) {
       html += `<div class="empty-state card"><p>Ovaj izvođač još nema ocena.</p></div>`;
     } else {
-      html += ratings.map((r) => {
-        const klijent = KU.store.getUserById(r.klijentId);
+      const ratingCards = await Promise.all(ratings.map(async (r) => {
+        const klijent = await KU.store.getUserById(r.klijentId);
         return `
           <div class="card mt-4">
             <div class="flex-between">
@@ -72,13 +75,15 @@
             ${r.komentar ? `<p class="mt-3 mb-0">„${kuEscape(r.komentar)}"</p>` : ""}
             <p class="small muted mt-2 mb-0">${kuFormatDate(r.createdAt)}</p>
           </div>`;
-      }).join("");
+      }));
+      html += ratingCards.join("");
     }
 
     mount.innerHTML = html;
   }
 
-  render();
+  await render();
+})().catch((err) => { console.error(err); kuToast("Greška: " + err.message); });
 </script>
 </body>
 </html>
