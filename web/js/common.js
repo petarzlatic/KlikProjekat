@@ -1,5 +1,5 @@
 /* =========================================================
-   SVENAKLIK — Zajedničke funkcije za sve stranice
+   USKLIK — Zajedničke funkcije za sve stranice
    (header/footer render, zaštita stranica po ulozi, pomoćne
    funkcije za prikaz zvezdica, inicijala, toast poruka...)
    ========================================================= */
@@ -79,7 +79,7 @@ function kuRenderHeader(activeNav) {
 
   mount.innerHTML = `
     <div class="inner">
-      <a class="logo" href="index.html">SveNaKlik<span class="dot">.rs</span></a>
+      <a class="logo" href="index.html"><img src="img/usklik-logo.png" alt="Usklik" /><span class="dot">.rs</span></a>
       <nav class="nav-links">
         <a class="navlink" href="kako-radi.html">Kako radi</a>
         <a class="navlink" href="pretraga.html">Pronađi izvođača</a>
@@ -104,7 +104,7 @@ function kuRenderFooter() {
   mount.innerHTML = `
     <div class="container foot-grid">
       <div>
-        <div class="logo" style="color:#fff;">SveNaKlik<span class="dot">.rs</span></div>
+        <div class="logo logo-footer" style="color:#fff;"><img src="img/usklik-logo.png" alt="Usklik" /><span class="dot">.rs</span></div>
         <p class="small" style="color:#B9C6EA; max-width:320px; margin-top:8px;">
           Digitalna platforma koja povezuje zanatlije i servise za čišćenje sa korisnicima.
           Test tržište: Niš, Srbija.
@@ -122,7 +122,7 @@ function kuRenderFooter() {
         <div class="small" style="color:#fff; font-weight:700; margin-bottom:8px;">O projektu</div>
         <div class="flex-col small" style="gap:6px;">
           <span>MVP verzija — u razvoju</span>
-          <span>© ${new Date().getFullYear()} SveNaKlik.rs</span>
+          <span>© ${new Date().getFullYear()} Usklik.rs</span>
         </div>
       </div>
     </div>`;
