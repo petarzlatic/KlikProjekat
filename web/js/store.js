@@ -1,5 +1,5 @@
 /* =========================================================
-   SVENAKLIK — Data layer (Supabase)
+   USKLIK — Data layer (Supabase)
    -----------------------------------------------------
    Ovo je JEDINO mesto u sajtu koje priča sa bazom (Supabase).
    Sve HTML stranice pozivaju iste funkcije kao i pre
