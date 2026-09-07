@@ -115,7 +115,7 @@ function kuRenderHeader(activeNav) {
         <a class="navlink" href="pretraga.html">Pronađi izvođača</a>
         ${user && user.role === "izvodjac" ? '<a class="navlink" href="panel-izvodjac.html">Dostupni zahtevi</a>' : ""}
         ${user && user.role === "klijent" ? '<a class="navlink" href="novi-zahtev.html">Objavi zahtev</a>' : ""}
-        ${user && user.role === "klijent" ? '<a class="navlink navlink-hitno" href="hitna-intervencija.html">🚨 Hitna intervencija</a>' : ""}
+        ${user && user.role === "klijent" ? '<a class="navlink navlink-hitno" href="hitna-intervencija.html"><span class="siren"></span> Hitna intervencija</a>' : ""}
       </nav>
       ${rightSide}
     </div>`;
