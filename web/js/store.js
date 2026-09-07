@@ -38,6 +38,7 @@ function _kuMapProfile(row) {
     demo: !!row.demo,
     godinaRodjenja: row.godina_rodjenja,
     godineIskustva: row.godine_iskustva,
+    cenaIzlaskaHitno: row.cena_izlaska_hitno,
   };
 }
 
@@ -53,6 +54,11 @@ function _kuMapRequest(row) {
     status: row.status,
     createdAt: row.created_at,
     izabranaPonudaId: row.izabrana_ponuda_id,
+    tipTermina: row.tip_termina || null,
+    datumPocetka: row.datum_pocetka || null,
+    fleksibilnostDana: row.fleksibilnost_dana || null,
+    zeljeniMesec: row.zeljeni_mesec || null,
+    hitno: !!row.hitno,
   };
 }
 
@@ -65,6 +71,10 @@ function _kuMapOffer(row) {
     poruka: row.poruka,
     status: row.status,
     createdAt: row.created_at,
+    predlozeniDatum: row.predlozeni_datum || null,
+    cenaIzlaska: row.cena_izlaska,
+    cenaPopravkeOd: row.cena_popravke_od,
+    cenaPopravkeDo: row.cena_popravke_do,
   };
 }
 
@@ -182,6 +192,7 @@ KU.store = {
     if (patch.kategorije !== undefined) dbPatch.kategorije = patch.kategorije;
     if (patch.godinaRodjenja !== undefined) dbPatch.godina_rodjenja = patch.godinaRodjenja;
     if (patch.godineIskustva !== undefined) dbPatch.godine_iskustva = patch.godineIskustva;
+    if (patch.cenaIzlaskaHitno !== undefined) dbPatch.cena_izlaska_hitno = patch.cenaIzlaskaHitno;
 
     const { data, error } = await KU_SUPABASE.from("profiles").update(dbPatch).eq("id", id).select().single();
     if (error) throw new Error(error.message);
@@ -236,7 +247,10 @@ KU.store = {
     return (data || []).map(_kuMapRequest);
   },
 
-  async createRequest({ klijentId, kategorija, opis, lokacija, zeljeniTermin }) {
+  async createRequest({
+    klijentId, kategorija, opis, lokacija, zeljeniTermin,
+    tipTermina, datumPocetka, fleksibilnostDana, zeljeniMesec, hitno,
+  }) {
     const row = {
       klijent_id: klijentId,
       kategorija,
@@ -244,6 +258,11 @@ KU.store = {
       lokacija,
       zeljeni_termin: (zeljeniTermin || "").trim(),
       status: "otvoren",
+      tip_termina: tipTermina || null,
+      datum_pocetka: datumPocetka || null,
+      fleksibilnost_dana: fleksibilnostDana || null,
+      zeljeni_mesec: zeljeniMesec || null,
+      hitno: !!hitno,
     };
     const { data, error } = await KU_SUPABASE.from("requests").insert(row).select().single();
     if (error) throw new Error(error.message);
@@ -300,12 +319,19 @@ KU.store = {
     return !!data;
   },
 
-  async createOffer({ requestId, izvodjacId, poruka }) {
+  async createOffer({
+    requestId, izvodjacId, poruka,
+    predlozeniDatum, cenaIzlaska, cenaPopravkeOd, cenaPopravkeDo,
+  }) {
     const row = {
       request_id: requestId,
       izvodjac_id: izvodjacId,
       poruka: (poruka || "").trim(),
       status: "poslata",
+      predlozeni_datum: predlozeniDatum || null,
+      cena_izlaska: cenaIzlaska != null && cenaIzlaska !== "" ? Number(cenaIzlaska) : null,
+      cena_popravke_od: cenaPopravkeOd != null && cenaPopravkeOd !== "" ? Number(cenaPopravkeOd) : null,
+      cena_popravke_do: cenaPopravkeDo != null && cenaPopravkeDo !== "" ? Number(cenaPopravkeDo) : null,
     };
     const { data, error } = await KU_SUPABASE.from("offers").insert(row).select().single();
     if (error) throw new Error(error.message);
