@@ -57,6 +57,21 @@ const KU_CONFIG = {
   LOKACIJE: [
     "Medijana", "Palilula", "Pantelej", "Crveni Krst", "Niška Banja", "Okolina Niša",
   ],
+
+  // HITNE INTERVENCIJE (dogovoreno 7. septembar, vidi
+  // PLAN_Fleksibilno_Zakazivanje_v1.md, deo 2) — samo kategorije sa
+  // pravim kvarovima koji ne trpe odlaganje. NEZAVISNO od
+  // AKTIVNE_KATEGORIJE iznad (koje važe samo za regularne zahteve) —
+  // hitna intervencija je posebna grana, radi odmah za ove kategorije
+  // bez obzira da li je regularan tok za njih još otvoren. Čišćenje
+  // (vertikala B) namerno nije uključeno — nema "popravke" kod čišćenja,
+  // pa mu treba drugačiji model naplate ako se ikad doda.
+  HITNE_KATEGORIJE: [
+    "vodoinstalater",
+    "elektricar",
+    "bravar",
+    "bela-tehnika",
+  ],
 };
 
 function kuKategorijaNaziv(id) {
@@ -66,6 +81,10 @@ function kuKategorijaNaziv(id) {
 
 function kuKategorijaAktivna(id) {
   return KU_CONFIG.AKTIVNE_KATEGORIJE.includes(id);
+}
+
+function kuKategorijaHitnaDostupna(id) {
+  return KU_CONFIG.HITNE_KATEGORIJE.includes(id);
 }
 
 // Kratak opis + ikonica (samo unutrašnji SVG sadržaj, bez <svg> omotača) za
