@@ -54,14 +54,17 @@
     const acceptedOffer = offers.find((o) => o.status === "prihvacena");
     const myOffer = isProvider ? offers.find((o) => o.izvodjacId === user.id) : null;
 
+    const terminText = kuFormatTermin(req);
     let html = `
       <div class="flex-between" style="flex-wrap:wrap; gap:8px;">
         <span class="badge" style="background:var(--color-primary-lighter); color:var(--color-primary);">${kuEscape(kuKategorijaNaziv(req.kategorija))}</span>
+        ${req.hitno ? '<span class="badge badge-hitno">🚨 Hitna intervencija</span>' : ""}
         ${statusBadge(req.status)}
       </div>
       <h1 class="mt-3">${kuEscape(req.opis)}</h1>
-      <p class="mb-0">📍 ${kuEscape(req.lokacija)} ${req.zeljeniTermin ? "· 🗓 " + kuEscape(req.zeljeniTermin) : ""}</p>
+      <p class="mb-0">📍 ${kuEscape(req.lokacija)} ${terminText ? "· 🗓 " + kuEscape(terminText) : ""}</p>
       <p class="small muted">Objavio/la ${kuEscape(client ? client.ime.split(" ")[0] : "—")} · ${kuFormatDate(req.createdAt)}</p>
+      ${req.hitno ? '<div class="card mt-3" style="border-color:rgba(197,61,61,0.35); background:#fbecec;"><p class="small mb-0">Majstor koji se javi naplaćuje cenu izlaska na teren plus cenu popravke (okvirna procena) — vidi ponudu ispod.</p></div>' : ""}
     `;
 
     if (isOwner && req.status === "otvoren") {
@@ -114,9 +117,9 @@
     if (isProvider) {
       if (req.status === "otvoren") {
         if (myOffer) {
-          html += `<div class="success-box">Poslao/la si ponudu: „${kuEscape(myOffer.poruka)}" — čekaš odgovor klijenta.</div>`;
+          html += `<div class="success-box">${myOfferSummary(myOffer)} — čekaš odgovor klijenta.</div>`;
         } else {
-          html += `<div id="ponudi"></div><h2>Javi se na ovaj zahtev</h2>` + offerFormHtml();
+          html += `<div id="ponudi"></div><h2>Javi se na ovaj zahtev</h2>` + offerFormHtml(req);
         }
       } else if (req.status === "u_toku") {
         if (acceptedOffer && acceptedOffer.izvodjacId === user.id) {
@@ -148,9 +151,27 @@
     attachHandlers(req);
   }
 
+  function cenaText(o) {
+    const delovi = [];
+    if (o.cenaIzlaska != null) delovi.push(`Izlazak: ${o.cenaIzlaska} din`);
+    if (o.cenaPopravkeOd != null && o.cenaPopravkeDo != null) {
+      delovi.push(`Popravka (procena): ${o.cenaPopravkeOd}–${o.cenaPopravkeDo} din`);
+    }
+    return delovi.join(" · ");
+  }
+
+  function myOfferSummary(o) {
+    if (o.cenaIzlaska != null || o.cenaPopravkeOd != null) {
+      const cena = cenaText(o);
+      return "Poslao/la si ponudu" + (cena ? " (" + cena + ")" : "") + (o.poruka ? ` — „${kuEscape(o.poruka)}"` : "");
+    }
+    return `Poslao/la si ponudu: „${kuEscape(o.poruka)}"`;
+  }
+
   async function offerCardForClient(o) {
     const izv = await KU.store.getUserById(o.izvodjacId);
     const stats = await KU.store.providerStats(izv.id);
+    const cena = cenaText(o);
     return `
       <div class="card mt-4">
         <div class="flex-between" style="flex-wrap:wrap; gap:12px;">
@@ -166,16 +187,50 @@
           </div>
           <button class="btn btn-primary btn-sm ku-accept-offer" data-offer="${o.id}" type="button">Prihvati ponudu</button>
         </div>
-        <p class="mt-3 mb-0">„${kuEscape(o.poruka)}"</p>
+        ${cena ? `<p class="mt-3 mb-0"><span class="badge badge-hitno">${kuEscape(cena)}</span></p>` : ""}
+        ${o.predlozeniDatum ? `<p class="mt-2 mb-0"><span class="badge badge-pending">Predlaže drugi datum: ${kuEscape(kuFormatDate(o.predlozeniDatum))}</span></p>` : ""}
+        ${o.poruka ? `<p class="mt-3 mb-0">„${kuEscape(o.poruka)}"</p>` : ""}
       </div>`;
   }
 
-  function offerFormHtml() {
+  function offerFormHtml(req) {
+    if (req.hitno) {
+      const podrazumevanaCena = user.cenaIzlaskaHitno != null ? user.cenaIzlaskaHitno : "";
+      return `
+        <form id="ku-offer-form">
+          <div class="grid grid-2">
+            <div class="field">
+              <label for="ku-offer-izlazak">Cena izlaska na teren (din)</label>
+              <input type="number" id="ku-offer-izlazak" min="0" step="1" required value="${kuEscape(String(podrazumevanaCena))}" />
+              <div class="hint">Podešava se u <a href="moj-profil.html">tvom profilu</a> — ovde je predpopunjena, po potrebi izmeni.</div>
+            </div>
+          </div>
+          <div class="grid grid-2">
+            <div class="field">
+              <label for="ku-offer-popravka-od">Cena popravke — od (din)</label>
+              <input type="number" id="ku-offer-popravka-od" min="0" step="1" required />
+            </div>
+            <div class="field">
+              <label for="ku-offer-popravka-do">Cena popravke — do (din)</label>
+              <input type="number" id="ku-offer-popravka-do" min="0" step="1" required />
+            </div>
+          </div>
+          <div class="field">
+            <label for="ku-offer-msg">Napomena (opciono)</label>
+            <textarea id="ku-offer-msg" placeholder="Npr. Mogu da stignem za 30-ak minuta."></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary">Pošalji ponudu</button>
+        </form>`;
+    }
     return `
       <form id="ku-offer-form">
         <div class="field">
           <label for="ku-offer-msg">Tvoja poruka klijentu</label>
           <textarea id="ku-offer-msg" required placeholder="Npr. Mogu da izađem u dogovorenom terminu, imam iskustva sa sličnim poslovima..."></textarea>
+        </div>
+        <div class="field">
+          <label for="ku-offer-datum">Ne mogu u traženom terminu — predlažem (opciono)</label>
+          <input type="date" id="ku-offer-datum" min="${kuSutra()}" />
         </div>
         <button type="submit" class="btn btn-primary">Pošalji ponudu</button>
       </form>`;
@@ -241,8 +296,20 @@
     if (offerForm) offerForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       const poruka = document.getElementById("ku-offer-msg").value.trim();
-      if (!poruka) return;
-      await KU.store.createOffer({ requestId: req.id, izvodjacId: user.id, poruka });
+      if (req.hitno) {
+        const cenaIzlaska = document.getElementById("ku-offer-izlazak").value;
+        const cenaPopravkeOd = document.getElementById("ku-offer-popravka-od").value;
+        const cenaPopravkeDo = document.getElementById("ku-offer-popravka-do").value;
+        if (!cenaIzlaska || !cenaPopravkeOd || !cenaPopravkeDo) return;
+        await KU.store.createOffer({
+          requestId: req.id, izvodjacId: user.id, poruka,
+          cenaIzlaska, cenaPopravkeOd, cenaPopravkeDo,
+        });
+      } else {
+        if (!poruka) return;
+        const predlozeniDatum = document.getElementById("ku-offer-datum").value || null;
+        await KU.store.createOffer({ requestId: req.id, izvodjacId: user.id, poruka, predlozeniDatum });
+      }
       kuToast("Ponuda poslata!");
       render().catch((err) => { console.error(err); kuToast("Greška: " + err.message); });
     });
