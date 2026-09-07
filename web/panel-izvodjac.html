@@ -97,17 +97,21 @@
       return;
     }
 
-    const cards = await Promise.all(requests.map(async (r) => {
+    async function requestCard(r) {
       const client = await KU.store.getUserById(r.klijentId);
       const alreadyOffered = await KU.store.hasOffered(r.id, user.id);
+      const terminText = kuFormatTermin(r);
       return `
-        <div class="card card-hover mt-4">
+        <div class="card card-hover mt-4" ${r.hitno ? 'style="border-color:rgba(197,61,61,0.4);"' : ""}>
           <div class="flex-between" style="flex-wrap:wrap; gap:8px;">
-            <span class="badge" style="background:var(--color-primary-lighter); color:var(--color-primary);">${kuEscape(kuKategorijaNaziv(r.kategorija))}</span>
+            <div class="flex gap-2" style="flex-wrap:wrap;">
+              <span class="badge" style="background:var(--color-primary-lighter); color:var(--color-primary);">${kuEscape(kuKategorijaNaziv(r.kategorija))}</span>
+              ${r.hitno ? '<span class="badge badge-hitno">🚨 HITNO</span>' : ""}
+            </div>
             <span class="small muted">${kuFormatDate(r.createdAt)}</span>
           </div>
           <h3 class="mt-2">${kuEscape(r.opis)}</h3>
-          <p class="small mb-0">📍 ${kuEscape(r.lokacija)} ${r.zeljeniTermin ? "· 🗓 " + kuEscape(r.zeljeniTermin) : ""}</p>
+          <p class="small mb-0">📍 ${kuEscape(r.lokacija)} ${terminText ? "· 🗓 " + kuEscape(terminText) : ""}</p>
           <p class="small muted">Klijent: ${kuEscape(client ? client.ime : "—")}</p>
           <div class="flex-between mt-3">
             <a class="btn btn-outline btn-sm" href="zahtev.html?id=${r.id}">Detalji</a>
@@ -116,8 +120,20 @@
               : `<a class="btn btn-primary btn-sm" href="zahtev.html?id=${r.id}#ponudi">Javi se</a>`}
           </div>
         </div>`;
-    }));
-    mount.innerHTML = cards.join("");
+    }
+
+    const hitni = requests.filter((r) => r.hitno);
+    const regularni = requests.filter((r) => !r.hitno);
+    const hitniCards = await Promise.all(hitni.map(requestCard));
+    const regularniCards = await Promise.all(regularni.map(requestCard));
+
+    let html = "";
+    if (hitni.length > 0) {
+      html += `<h2 class="mt-5" style="color:var(--color-danger);">🚨 Hitne intervencije</h2>` + hitniCards.join("");
+      if (regularni.length > 0) html += `<h2 class="mt-6">Regularni zahtevi</h2>`;
+    }
+    html += regularniCards.join("");
+    mount.innerHTML = html;
   }
 
   async function renderMyOffers() {
@@ -138,16 +154,23 @@
       let statusHtml = '<span class="badge badge-pending">Čeka odgovor</span>';
       if (o.status === "prihvacena") statusHtml = '<span class="badge badge-open">Prihvaćena — imaš kontakt</span>';
       if (o.status === "odbijena") statusHtml = '<span class="badge badge-done">Klijent je izabrao drugog</span>';
+      const cenaDelovi = [];
+      if (o.cenaIzlaska != null) cenaDelovi.push(`Izlazak: ${o.cenaIzlaska} din`);
+      if (o.cenaPopravkeOd != null && o.cenaPopravkeDo != null) cenaDelovi.push(`Popravka: ${o.cenaPopravkeOd}–${o.cenaPopravkeDo} din`);
+      const detaljLinija = cenaDelovi.length
+        ? cenaDelovi.join(" · ") + (o.poruka ? ` — „${kuEscape(o.poruka)}"` : "")
+        : `Tvoja poruka: „${kuEscape(o.poruka)}"`;
       return `
         <a href="zahtev.html?id=${req.id}" class="card card-hover card-link mt-4" style="display:block;">
           <div class="flex-between" style="flex-wrap:wrap; gap:8px;">
             <div>
               <span class="badge" style="background:var(--color-primary-lighter); color:var(--color-primary);">${kuEscape(kuKategorijaNaziv(req.kategorija))}</span>
+              ${req.hitno ? '<span class="badge badge-hitno">🚨 HITNO</span>' : ""}
               <h3 class="mt-2 mb-0">${kuEscape(req.opis).slice(0, 90)}${req.opis.length > 90 ? "…" : ""}</h3>
             </div>
             ${statusHtml}
           </div>
-          <p class="small mt-2 mb-0">Tvoja poruka: „${kuEscape(o.poruka)}"</p>
+          <p class="small mt-2 mb-0">${detaljLinija}</p>
         </a>`;
     }));
     mount.innerHTML = cards.join("");
