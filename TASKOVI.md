@@ -307,6 +307,32 @@ Na kraju sesije ("večernji pregled"), Claude:
   sve izgleda dosledno sa ostatkom sajta). **Nije još uploadovano na
   GitHub niti pokrenut SQL — vidi "Trenutni cilj" gore za tačne sledeće
   korake.**
+- **07.09 (dopuna) — dve manje izmene na početnoj + animirana "rotaciona
+  lampa" za hitne intervencije.** Pre upload-a, Petar je tražio: (1)
+  izbaciti rečenicu "Zanatski posao je vredan ali redak i sezonski.
+  Čišćenje je jeftinije ali stalno. Zajedno rešavaju sezonalnost." ispod
+  naslova "Dve vertikale koje se dopunjuju" (odaje internu poslovnu
+  logiku korisnicima/majstorima koju ne treba da vide), i (2) skratiti
+  "100% besplatno u ovoj fazi" na prosto "100% besplatno" — oboje u
+  `web/index.html`. Zatim je zatražio da statična 🚨 emoji ikonica za
+  hitne intervencije bude upadljivija — "rotirajuća lampa/sirena", kao na
+  servisnim vozilima. Napravljena čisto CSS animacija (`.siren` klasa u
+  `style.css` — kružni amber/narandžasti sjaj koji pulsira plus rotirajući
+  odsjaj, bez slika, poštuje `prefers-reduced-motion`) i zamenjena svuda
+  gde je emoji ranije stajao: hero baner na početnoj (`.siren-lg`,
+  veća verzija), link u navigaciji, bedž na `hitna-intervencija.html`,
+  bedž na `zahtev.html`, i bedž/naslov na `panel-izvodjac.html` (kartica
+  hitnog zahteva + naslov sekcije). Sintaksno provereno i vizuelno
+  potvrđeno (Playwright, dva frejma animacije) — sjaj i rotacija se jasno
+  vide. Izmenjeni fajlovi (dodatno na spisak iz glavnog unosa iznad):
+  `web/index.html`, `web/js/common.js`, `web/hitna-intervencija.html`,
+  `web/zahtev.html`, `web/panel-izvodjac.html`, `web/css/style.css`.
+  **Dopuna (ista sesija):** dodata minijaturna strelica između koraka u
+  sekciji "Kako platforma radi" (`index.html`) — udesno između koraka na
+  desktopu, naniže kad se koraci ređaju u jednu kolonu na mobilnom.
+  Čisto CSS (`.step::after` u `style.css`), HTML nedirnut. Ovo je
+  POSLEDNJA izmena pre GitHub upload-a — `web/css/style.css` je fajl
+  koji je Petar poslednji dobio, ta verzija je finalna za upload.
 - **06.09 — PREGLED CELOG DANA (za brz nastavak sledeći put).** Radilo se
   na tri stvari, redom (detalji u zasebnim unosima ispod):
   1. **Ime platforme promenjeno DRUGI PUT, u "Usklik.rs".** Domen
