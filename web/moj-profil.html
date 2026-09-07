@@ -33,6 +33,11 @@
           <label>Kategorije usluga koje nudiš</label>
           <div id="ku-kategorije-checkboxes" class="grid grid-2"></div>
         </div>
+        <div class="field" id="ku-cena-izlaska-field" style="display:none;">
+          <label for="cena-izlaska-hitno">Cena izlaska za hitne intervencije (RSD)</label>
+          <input type="number" id="cena-izlaska-hitno" min="0" step="1" />
+          <div class="hint">Fiksna cena dolaska na teren (kao „start" kod taksija) — automatski se upisuje u svaku ponudu koju pošalješ na hitnu intervenciju. Vidljivo jer si izabrao/la bar jednu kategoriju kod koje su hitne intervencije moguće (vodoinstalater, električar, bravar, bela tehnika).</div>
+        </div>
         <div class="field">
           <label for="bio">Kratak opis / iskustvo</label>
           <textarea id="bio"></textarea>
@@ -54,6 +59,12 @@
   const user = kuRequireAuth(null);
   if (!user) return;
 
+  function osveziCenaIzlaskaVidljivost() {
+    const izabrane = Array.from(document.querySelectorAll(".ku-kat-cb:checked")).map((c) => c.value);
+    const imaHitnu = izabrane.some((id) => kuKategorijaHitnaDostupna(id));
+    document.getElementById("ku-cena-izlaska-field").style.display = imaHitnu ? "block" : "none";
+  }
+
   function renderKategorijeCheckboxes(selected) {
     const mount = document.getElementById("ku-kategorije-checkboxes");
     mount.innerHTML = KU_CONFIG.KATEGORIJE.map((k) => `
@@ -61,6 +72,8 @@
         <input type="checkbox" value="${k.id}" class="ku-kat-cb" ${selected.includes(k.id) ? "checked" : ""} />
         ${kuEscape(k.naziv)}
       </label>`).join("");
+    document.querySelectorAll(".ku-kat-cb").forEach((cb) => cb.addEventListener("change", osveziCenaIzlaskaVidljivost));
+    osveziCenaIzlaskaVidljivost();
   }
 
   function fillForm() {
@@ -69,6 +82,7 @@
     if (user.role === "izvodjac") {
       document.getElementById("ku-izvodjac-fields").style.display = "block";
       document.getElementById("bio").value = user.bio || "";
+      document.getElementById("cena-izlaska-hitno").value = user.cenaIzlaskaHitno != null ? user.cenaIzlaskaHitno : "";
       renderKategorijeCheckboxes(user.kategorije || []);
     }
   }
@@ -84,6 +98,8 @@
     if (user.role === "izvodjac") {
       patch.bio = document.getElementById("bio").value.trim();
       patch.kategorije = Array.from(document.querySelectorAll(".ku-kat-cb:checked")).map((c) => c.value);
+      const cenaVal = document.getElementById("cena-izlaska-hitno").value;
+      patch.cenaIzlaskaHitno = cenaVal !== "" ? Number(cenaVal) : null;
     }
     try {
       await KU.store.updateUser(user.id, patch);
