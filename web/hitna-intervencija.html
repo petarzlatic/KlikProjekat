@@ -42,6 +42,16 @@
         <select id="lokacija" required></select>
       </div>
 
+      <div class="field">
+        <label for="slika">Fotografija kvara (opciono)</label>
+        <input type="file" id="slika" accept="image/*" />
+        <div class="hint">Slika pomaže majstoru da tačnije proceni kvar pre nego što dođe — nije obavezno, ali preporučeno.</div>
+        <div id="ku-slika-preview" class="mt-3" style="display:none;">
+          <img id="ku-slika-preview-img" alt="Pregled fotografije" style="max-width:220px; max-height:220px; border-radius:var(--radius); border:1px solid var(--color-border); display:block;" />
+          <button type="button" class="btn btn-outline btn-sm mt-2" id="ku-slika-remove">Ukloni sliku</button>
+        </div>
+      </div>
+
       <button type="submit" class="btn btn-primary btn-block" style="background:var(--color-danger);">Prijavi hitnu intervenciju</button>
     </form>
   </div>
@@ -72,6 +82,21 @@
   }
   fillSelects();
 
+  const slikaInput = document.getElementById("slika");
+  const slikaPreview = document.getElementById("ku-slika-preview");
+  const slikaPreviewImg = document.getElementById("ku-slika-preview-img");
+
+  slikaInput.addEventListener("change", () => {
+    const file = slikaInput.files[0];
+    if (!file) { slikaPreview.style.display = "none"; return; }
+    slikaPreviewImg.src = URL.createObjectURL(file);
+    slikaPreview.style.display = "block";
+  });
+  document.getElementById("ku-slika-remove").addEventListener("click", () => {
+    slikaInput.value = "";
+    slikaPreview.style.display = "none";
+  });
+
   document.getElementById("ku-hitno-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const errBox = document.getElementById("ku-error");
@@ -90,12 +115,20 @@
     const submitBtn = e.target.querySelector('button[type="submit"]');
     submitBtn.disabled = true;
     try {
+      let slikaUrl = null;
+      const file = slikaInput.files[0];
+      if (file) {
+        submitBtn.textContent = "Otpremam sliku...";
+        slikaUrl = await KU.store.uploadSlikaHitne(file, user.id);
+        submitBtn.textContent = "Prijavi hitnu intervenciju";
+      }
       const req = await KU.store.createRequest({
         klijentId: user.id,
         kategorija,
         opis,
         lokacija,
         hitno: true,
+        slikaUrl,
       });
       kuToast("Hitna intervencija prijavljena!");
       window.location.href = "zahtev.html?id=" + req.id;
@@ -103,6 +136,7 @@
       errBox.textContent = "Greška: " + err.message;
       errBox.classList.add("show");
       submitBtn.disabled = false;
+      submitBtn.textContent = "Prijavi hitnu intervenciju";
     }
   });
 })();
