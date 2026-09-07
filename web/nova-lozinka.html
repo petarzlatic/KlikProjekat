@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Nova lozinka — Usklik.rs</title>
+<link rel="icon" type="image/png" href="img/usklik-icon-192.png" />
+<link rel="apple-touch-icon" href="img/usklik-icon-180.png" />
+<link rel="stylesheet" href="css/style.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+<div id="ku-demo-banner" class="demo-banner"></div>
+<header id="ku-header" class="site-header"></header>
+
+<div class="page-wrap">
+  <div class="container-narrow">
+    <h1>Postavi novu lozinku</h1>
+    <p>Stigao/la si ovde preko linka iz email-a — unesi novu lozinku za svoj nalog.</p>
+
+    <div class="error-box" id="ku-error"></div>
+    <div class="success-box" id="ku-success" style="display:none;">Lozinka je promenjena! Preusmeravamo te na prijavu...</div>
+
+    <form id="ku-newpass-form" novalidate>
+      <div class="field">
+        <label for="password1">Nova lozinka</label>
+        <input type="password" id="password1" required autocomplete="new-password" minlength="6" />
+      </div>
+      <div class="field">
+        <label for="password2">Ponovi novu lozinku</label>
+        <input type="password" id="password2" required autocomplete="new-password" minlength="6" />
+      </div>
+      <button type="submit" class="btn btn-primary btn-block">Sačuvaj novu lozinku</button>
+    </form>
+  </div>
+</div>
+
+<footer id="ku-footer" class="site-footer"></footer>
+
+<script src="js/config.js"></script>
+<script src="js/store.js"></script>
+<script src="js/common.js"></script>
+<script>
+(async () => {
+  await KU.ready;
+  const errBox = document.getElementById("ku-error");
+  const successBox = document.getElementById("ku-success");
+
+  document.getElementById("ku-newpass-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    errBox.classList.remove("show");
+    const p1 = document.getElementById("password1").value;
+    const p2 = document.getElementById("password2").value;
+    if (p1.length < 6) {
+      errBox.textContent = "Lozinka mora imati bar 6 karaktera.";
+      errBox.classList.add("show");
+      return;
+    }
+    if (p1 !== p2) {
+      errBox.textContent = "Lozinke se ne poklapaju.";
+      errBox.classList.add("show");
+      return;
+    }
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    try {
+      await KU.store.postaviNovuLozinku(p1);
+      successBox.style.display = "block";
+      e.target.style.display = "none";
+      setTimeout(() => { window.location.href = "prijava.html"; }, 2200);
+    } catch (err) {
+      errBox.textContent = "Greška: " + err.message + " (link je možda istekao — zatraži novi sa stranice za prijavu).";
+      errBox.classList.add("show");
+      submitBtn.disabled = false;
+    }
+  });
+})();
+</script>
+</body>
+</html>
