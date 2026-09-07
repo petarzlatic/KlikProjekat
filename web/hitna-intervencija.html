@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Hitna intervencija — Usklik.rs</title>
+<link rel="icon" type="image/png" href="img/usklik-icon-192.png" />
+<link rel="apple-touch-icon" href="img/usklik-icon-180.png" />
+<link rel="stylesheet" href="css/style.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+<div id="ku-demo-banner" class="demo-banner"></div>
+<header id="ku-header" class="site-header"></header>
+
+<div class="page-wrap">
+  <div class="container-narrow">
+    <span class="badge badge-hitno">🚨 Hitna intervencija</span>
+    <h1 class="mt-3">Prijavi hitan kvar</h1>
+    <p>Za kvarove koji ne mogu da čekaju — pukla cev, nestalo struje, zaključana vrata i slično. Nema biranja termina, majstori u tvojoj kategoriji vide zahtev odmah i javljaju se.</p>
+
+    <div class="card mb-5" style="border-color:rgba(197,61,61,0.35); background:#fbecec;">
+      <strong>Kako se naplaćuje hitna intervencija?</strong>
+      <p class="small mb-0 mt-2">Majstor koji se javi naplaćuje cenu izlaska na teren (fiksna, kao „start" kod taksija) plus cenu same popravke, koju daje kao okvirnu procenu — tačna cena zavisi od onoga što se vidi na licu mesta. Dogovor i plaćanje idu direktno sa majstorom.</p>
+    </div>
+
+    <div class="error-box" id="ku-error"></div>
+
+    <form id="ku-hitno-form" novalidate>
+      <div class="field">
+        <label for="kategorija">Vrsta kvara</label>
+        <select id="kategorija" required></select>
+      </div>
+
+      <div class="field">
+        <label for="opis">Opis problema</label>
+        <textarea id="opis" required placeholder="Npr. Pukla cev ispod sudopere, curi voda po kuhinji."></textarea>
+      </div>
+
+      <div class="field">
+        <label for="lokacija">Lokacija</label>
+        <select id="lokacija" required></select>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-block" style="background:var(--color-danger);">Prijavi hitnu intervenciju</button>
+    </form>
+  </div>
+</div>
+
+<footer id="ku-footer" class="site-footer"></footer>
+
+<script src="js/config.js"></script>
+<script src="js/store.js"></script>
+<script src="js/common.js"></script>
+<script>
+(async () => {
+  await KU.ready;
+  const user = kuRequireAuth("klijent");
+  if (!user) return;
+
+  function fillSelects() {
+    const katSelect = document.getElementById("kategorija");
+    const hitne = KU_CONFIG.KATEGORIJE.filter((k) => kuKategorijaHitnaDostupna(k.id));
+    katSelect.innerHTML =
+      '<option value="">Izaberi vrstu kvara...</option>' +
+      hitne.map((k) => `<option value="${k.id}">${kuEscape(k.naziv)}</option>`).join("");
+
+    const locSelect = document.getElementById("lokacija");
+    locSelect.innerHTML =
+      '<option value="">Izaberi deo grada...</option>' +
+      KU_CONFIG.LOKACIJE.map((l) => `<option value="${l}">${kuEscape(l)}</option>`).join("");
+  }
+  fillSelects();
+
+  document.getElementById("ku-hitno-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const errBox = document.getElementById("ku-error");
+    errBox.classList.remove("show");
+
+    const kategorija = document.getElementById("kategorija").value;
+    const opis = document.getElementById("opis").value.trim();
+    const lokacija = document.getElementById("lokacija").value;
+
+    if (!kategorija || !opis || !lokacija) {
+      errBox.textContent = "Popuni vrstu kvara, opis i lokaciju.";
+      errBox.classList.add("show");
+      return;
+    }
+
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    try {
+      const req = await KU.store.createRequest({
+        klijentId: user.id,
+        kategorija,
+        opis,
+        lokacija,
+        hitno: true,
+      });
+      kuToast("Hitna intervencija prijavljena!");
+      window.location.href = "zahtev.html?id=" + req.id;
+    } catch (err) {
+      errBox.textContent = "Greška: " + err.message;
+      errBox.classList.add("show");
+      submitBtn.disabled = false;
+    }
+  });
+})();
+</script>
+</body>
+</html>
