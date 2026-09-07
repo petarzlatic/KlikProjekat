@@ -125,6 +125,8 @@ a:hover { text-decoration: underline; }
   font-size: 0.95rem;
 }
 .nav-links a.navlink:hover { color: var(--color-primary); text-decoration: none; }
+.nav-links a.navlink-hitno { color: var(--color-danger); font-weight: 700; }
+.nav-links a.navlink-hitno:hover { color: #9c2f2f; }
 
 .nav-user {
   display: flex;
@@ -290,6 +292,7 @@ textarea { resize: vertical; min-height: 90px; }
 .badge-done { background: #eef0f2; color: var(--color-text-muted); }
 .badge-vertical-a { background: #fbe8de; color: var(--color-accent-dark); }
 .badge-vertical-b { background: var(--color-primary-lighter); color: var(--color-primary); }
+.badge-hitno { background: #fbecec; color: var(--color-danger); }
 
 /* ---------- Zvezdice ---------- */
 .stars { color: var(--color-star); letter-spacing: 1px; font-size: 1rem; white-space: nowrap; }
@@ -405,6 +408,32 @@ textarea { resize: vertical; min-height: 90px; }
   text-decoration: none;
 }
 .hero-secondary a.pill:hover { background: rgba(255,255,255,0.12); text-decoration: none; }
+
+.hero-urgent {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  margin-top: var(--space-6);
+  padding: 16px 22px;
+  background: rgba(197, 61, 61, 0.18);
+  border: 1px solid rgba(197, 61, 61, 0.5);
+  border-radius: 16px;
+}
+.hero-urgent .hero-urgent-text { color: #fff; font-size: 0.9rem; text-align: left; }
+.hero-urgent .hero-urgent-text strong { display: block; font-size: 1.05rem; margin-bottom: 2px; }
+.hero-urgent .btn-urgent {
+  background: var(--color-danger);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.92rem;
+  padding: 11px 20px;
+  border-radius: 11px;
+  white-space: nowrap;
+  text-decoration: none;
+}
+.hero-urgent .btn-urgent:hover { background: #9c2f2f; text-decoration: none; }
 
 .stat-row {
   display: flex;
@@ -596,4 +625,7 @@ section.section.alt { background: var(--color-primary-lighter); }
 @media (max-width: 640px) {
   .hero h1 { font-size: 1.9rem; }
   .nav-links { display: none; }
-  .nav-links.mobile-open { display: flex; flex-direction: column; align-items: flex-star
+  .nav-links.mobile-open { display: flex; flex-direction: column; align-items: flex-start; width: 100%; }
+  .site-header .inner { flex-wrap: wrap; }
+  .stat-row { gap: var(--space-5); }
+}
