@@ -65,6 +65,7 @@
       <p class="mb-0">📍 ${kuEscape(req.lokacija)} ${terminText ? "· 🗓 " + kuEscape(terminText) : ""}</p>
       <p class="small muted">Objavio/la ${kuEscape(client ? client.ime.split(" ")[0] : "—")} · ${kuFormatDate(req.createdAt)}</p>
       ${req.hitno ? '<div class="card mt-3" style="border-color:rgba(197,61,61,0.35); background:#fbecec;"><p class="small mb-0">Majstor koji se javi naplaćuje cenu izlaska na teren plus cenu popravke (okvirna procena) — vidi ponudu ispod.</p></div>' : ""}
+      ${req.slikaUrl ? `<a href="${req.slikaUrl}" target="_blank" rel="noopener"><img src="${req.slikaUrl}" alt="Fotografija kvara" class="mt-3" style="max-width:280px; max-height:280px; border-radius:var(--radius); border:1px solid var(--color-border); display:block;" /></a>` : ""}
     `;
 
     if (isOwner && req.status === "otvoren") {
