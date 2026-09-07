@@ -106,7 +106,7 @@
           <div class="flex-between" style="flex-wrap:wrap; gap:8px;">
             <div class="flex gap-2" style="flex-wrap:wrap;">
               <span class="badge" style="background:var(--color-primary-lighter); color:var(--color-primary);">${kuEscape(kuKategorijaNaziv(r.kategorija))}</span>
-              ${r.hitno ? '<span class="badge badge-hitno">🚨 HITNO</span>' : ""}
+              ${r.hitno ? '<span class="badge badge-hitno"><span class="siren"></span> HITNO</span>' : ""}
             </div>
             <span class="small muted">${kuFormatDate(r.createdAt)}</span>
           </div>
@@ -129,7 +129,7 @@
 
     let html = "";
     if (hitni.length > 0) {
-      html += `<h2 class="mt-5" style="color:var(--color-danger);">🚨 Hitne intervencije</h2>` + hitniCards.join("");
+      html += `<h2 class="mt-5" style="color:var(--color-danger);"><span class="siren"></span> Hitne intervencije</h2>` + hitniCards.join("");
       if (regularni.length > 0) html += `<h2 class="mt-6">Regularni zahtevi</h2>`;
     }
     html += regularniCards.join("");
@@ -165,7 +165,7 @@
           <div class="flex-between" style="flex-wrap:wrap; gap:8px;">
             <div>
               <span class="badge" style="background:var(--color-primary-lighter); color:var(--color-primary);">${kuEscape(kuKategorijaNaziv(req.kategorija))}</span>
-              ${req.hitno ? '<span class="badge badge-hitno">🚨 HITNO</span>' : ""}
+              ${req.hitno ? '<span class="badge badge-hitno"><span class="siren"></span> HITNO</span>' : ""}
               <h3 class="mt-2 mb-0">${kuEscape(req.opis).slice(0, 90)}${req.opis.length > 90 ? "…" : ""}</h3>
             </div>
             ${statusHtml}
