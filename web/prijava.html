@@ -19,6 +19,7 @@
     <p>Prijavi se svojim nalogom.</p>
 
     <div class="error-box" id="ku-error"></div>
+    <div class="success-box" id="ku-success" style="display:none;"></div>
 
     <form id="ku-login-form" novalidate>
       <div class="field">
@@ -30,7 +31,18 @@
         <input type="password" id="password" required autocomplete="current-password" />
       </div>
       <button type="submit" class="btn btn-primary btn-block">Prijavi se</button>
-      <p class="small center mt-4 mb-0">Nemaš nalog? <a href="registracija.html">Registruj se</a></p>
+      <p class="small center mt-3 mb-0"><a href="#" id="ku-forgot-link">Zaboravio/la si lozinku?</a></p>
+      <p class="small center mt-2 mb-0">Nemaš nalog? <a href="registracija.html">Registruj se</a></p>
+    </form>
+
+    <form id="ku-forgot-form" novalidate style="display:none;">
+      <p class="small">Unesi email sa kojim si registrovan/a — poslaćemo ti link za postavljanje nove lozinke.</p>
+      <div class="field">
+        <label for="forgot-email">Email</label>
+        <input type="email" id="forgot-email" required autocomplete="email" />
+      </div>
+      <button type="submit" class="btn btn-primary btn-block">Pošalji link za reset</button>
+      <p class="small center mt-3 mb-0"><a href="#" id="ku-back-to-login">← Nazad na prijavu</a></p>
     </form>
   </div>
 </div>
@@ -41,10 +53,50 @@
 <script src="js/store.js"></script>
 <script src="js/common.js"></script>
 <script>
+  const loginForm = document.getElementById("ku-login-form");
+  const forgotForm = document.getElementById("ku-forgot-form");
+  const errBox = document.getElementById("ku-error");
+  const successBox = document.getElementById("ku-success");
+
+  document.getElementById("ku-forgot-link").addEventListener("click", (e) => {
+    e.preventDefault();
+    errBox.classList.remove("show");
+    successBox.style.display = "none";
+    loginForm.style.display = "none";
+    forgotForm.style.display = "block";
+  });
+  document.getElementById("ku-back-to-login").addEventListener("click", (e) => {
+    e.preventDefault();
+    errBox.classList.remove("show");
+    successBox.style.display = "none";
+    forgotForm.style.display = "none";
+    loginForm.style.display = "block";
+  });
+
+  forgotForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    errBox.classList.remove("show");
+    successBox.style.display = "none";
+    const email = document.getElementById("forgot-email").value.trim();
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    await KU.ready;
+    try {
+      await KU.store.posaljiResetLozinke(email);
+      successBox.textContent = "Poslali smo ti email sa linkom za postavljanje nove lozinke — proveri inbox (i spam folder).";
+      successBox.style.display = "block";
+      forgotForm.reset();
+    } catch (err) {
+      errBox.textContent = "Greška: " + err.message;
+      errBox.classList.add("show");
+    }
+    submitBtn.disabled = false;
+  });
+
   document.getElementById("ku-login-form").addEventListener("submit", async (e) => {
     e.preventDefault();
-    const errBox = document.getElementById("ku-error");
     errBox.classList.remove("show");
+    successBox.style.display = "none";
     const email = document.getElementById("email").value.trim();
     const password = document.getElementById("password").value;
     const submitBtn = e.target.querySelector('button[type="submit"]');
