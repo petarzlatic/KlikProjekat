@@ -54,6 +54,36 @@ function kuQueryParam(name) {
   return new URLSearchParams(window.location.search).get(name);
 }
 
+/* Čitljiv prikaz željenog termina zahteva — čita nova strukturirana
+   polja (fleksibilno zakazivanje, dogovoreno 6-7.9.), sa padom nazad na
+   stari slobodan tekst za zahteve napravljene pre ove izmene. Hitne
+   intervencije nemaju termin (vraća prazan string — poziv koji ga
+   prikazuje treba prvo da proveri req.hitno). */
+function kuFormatTermin(req) {
+  if (!req || req.hitno) return "";
+  if (req.tipTermina === "tacan_datum" && req.datumPocetka) {
+    return kuFormatDate(req.datumPocetka);
+  }
+  if (req.tipTermina === "fleksibilan_period" && req.datumPocetka) {
+    return "oko " + kuFormatDate(req.datumPocetka) + " (±" + req.fleksibilnostDana + " dana)";
+  }
+  if (req.tipTermina === "fleksibilan_mesec" && req.zeljeniMesec) {
+    const d = new Date(req.zeljeniMesec);
+    const naziv = d.toLocaleDateString("sr-RS", { month: "long", year: "numeric" });
+    return naziv.charAt(0).toUpperCase() + naziv.slice(1);
+  }
+  return req.zeljeniTermin || "";
+}
+
+/* Sutrašnji datum u YYYY-MM-DD formatu — koristi se kao "min" atribut na
+   <input type="date"> za regularne zahteve (najranije sutra, dogovoreno
+   7.9. — današnji dan je rezervisan za hitne intervencije). */
+function kuSutra() {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
 /* ---------------------- Header / Footer ---------------------- */
 function kuRenderHeader(activeNav) {
   const mount = document.getElementById("ku-header");
@@ -85,6 +115,7 @@ function kuRenderHeader(activeNav) {
         <a class="navlink" href="pretraga.html">Pronađi izvođača</a>
         ${user && user.role === "izvodjac" ? '<a class="navlink" href="panel-izvodjac.html">Dostupni zahtevi</a>' : ""}
         ${user && user.role === "klijent" ? '<a class="navlink" href="novi-zahtev.html">Objavi zahtev</a>' : ""}
+        ${user && user.role === "klijent" ? '<a class="navlink navlink-hitno" href="hitna-intervencija.html">🚨 Hitna intervencija</a>' : ""}
       </nav>
       ${rightSide}
     </div>`;
