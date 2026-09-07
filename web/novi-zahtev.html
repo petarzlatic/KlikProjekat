@@ -38,8 +38,44 @@
       </div>
 
       <div class="field">
-        <label for="termin">Željeni termin</label>
-        <input type="text" id="termin" placeholder="Npr. sledeće nedelje, ili 'fleksibilno'" />
+        <label>Željeni termin</label>
+        <div class="radio-group" id="ku-tip-termina-group">
+          <label class="radio-card selected" data-tip="tacan_datum">
+            <input type="radio" name="tip-termina" value="tacan_datum" checked />
+            <strong>Tačan datum</strong>
+            <span>Znam tačno kada želim da radovi počnu.</span>
+          </label>
+          <label class="radio-card" data-tip="fleksibilan_period">
+            <input type="radio" name="tip-termina" value="fleksibilan_period" />
+            <strong>Fleksibilan period</strong>
+            <span>Otprilike ovaj datum, uz malo fleksibilnosti.</span>
+          </label>
+          <label class="radio-card" data-tip="fleksibilan_mesec">
+            <input type="radio" name="tip-termina" value="fleksibilan_mesec" />
+            <strong>Samo mesec</strong>
+            <span>Nije hitno — najviše mogućnosti, najviše ponuda.</span>
+          </label>
+        </div>
+
+        <div id="ku-termin-datum-wrap" class="grid grid-2 mt-3">
+          <div class="field mb-0">
+            <label for="datum-pocetka" class="small">Datum početka</label>
+            <input type="date" id="datum-pocetka" required />
+          </div>
+          <div class="field mb-0" id="ku-fleksibilnost-wrap" style="display:none;">
+            <label for="fleksibilnost-dana" class="small">Fleksibilnost</label>
+            <select id="fleksibilnost-dana">
+              <option value="3">± 3 dana</option>
+              <option value="5">± 5 dana</option>
+              <option value="7">± 7 dana</option>
+            </select>
+          </div>
+        </div>
+        <div id="ku-termin-mesec-wrap" class="mt-3" style="display:none;">
+          <label for="zeljeni-mesec" class="small">Mesec</label>
+          <input type="month" id="zeljeni-mesec" />
+        </div>
+        <div class="hint">Najraniji mogući datum je sutra. Za kvar koji ne može da čeka, prijavi <a href="hitna-intervencija.html">hitnu intervenciju</a> umesto ovoga.</div>
       </div>
 
       <button type="submit" class="btn btn-primary btn-block">Objavi zahtev</button>
@@ -80,6 +116,29 @@
   }
   fillSelects();
 
+  /* ---- Tip termina: 3 radio-kartice (tačan datum / fleksibilan period / samo mesec) ---- */
+  const datumInput = document.getElementById("datum-pocetka");
+  const mesecInput = document.getElementById("zeljeni-mesec");
+  datumInput.min = kuSutra();
+  mesecInput.min = new Date().toISOString().slice(0, 7);
+
+  function trenutniTipTermina() {
+    return document.querySelector('input[name="tip-termina"]:checked').value;
+  }
+
+  function osveziTerminPrikaz() {
+    const tip = trenutniTipTermina();
+    document.querySelectorAll("#ku-tip-termina-group .radio-card").forEach((card) => {
+      card.classList.toggle("selected", card.dataset.tip === tip);
+    });
+    document.getElementById("ku-termin-datum-wrap").style.display = tip === "fleksibilan_mesec" ? "none" : "grid";
+    document.getElementById("ku-fleksibilnost-wrap").style.display = tip === "fleksibilan_period" ? "block" : "none";
+    document.getElementById("ku-termin-mesec-wrap").style.display = tip === "fleksibilan_mesec" ? "block" : "none";
+    datumInput.required = tip !== "fleksibilan_mesec";
+  }
+  document.querySelectorAll('input[name="tip-termina"]').forEach((r) => r.addEventListener("change", osveziTerminPrikaz));
+  osveziTerminPrikaz();
+
   document.getElementById("ku-req-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const errBox = document.getElementById("ku-error");
@@ -88,13 +147,27 @@
     const kategorija = document.getElementById("kategorija").value;
     const opis = document.getElementById("opis").value.trim();
     const lokacija = document.getElementById("lokacija").value;
-    const termin = document.getElementById("termin").value.trim();
+    const tipTermina = trenutniTipTermina();
 
     if (!kategorija || !opis || !lokacija) {
       errBox.textContent = "Popuni kategoriju, opis i lokaciju.";
       errBox.classList.add("show");
       return;
     }
+    if (tipTermina !== "fleksibilan_mesec" && !datumInput.value) {
+      errBox.textContent = "Izaberi datum početka (najranije sutra).";
+      errBox.classList.add("show");
+      return;
+    }
+    if (tipTermina === "fleksibilan_mesec" && !mesecInput.value) {
+      errBox.textContent = "Izaberi mesec kad želiš da radovi počnu.";
+      errBox.classList.add("show");
+      return;
+    }
+
+    const datumPocetka = tipTermina !== "fleksibilan_mesec" ? datumInput.value : null;
+    const fleksibilnostDana = tipTermina === "fleksibilan_period" ? Number(document.getElementById("fleksibilnost-dana").value) : null;
+    const zeljeniMesec = tipTermina === "fleksibilan_mesec" ? mesecInput.value + "-01" : null;
 
     const submitBtn = e.target.querySelector('button[type="submit"]');
     submitBtn.disabled = true;
@@ -104,7 +177,10 @@
         kategorija,
         opis,
         lokacija,
-        zeljeniTermin: termin,
+        tipTermina,
+        datumPocetka,
+        fleksibilnostDana,
+        zeljeniMesec,
       });
       kuToast("Zahtev objavljen!");
       window.location.href = "zahtev.html?id=" + req.id;
