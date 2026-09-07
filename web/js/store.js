@@ -59,6 +59,7 @@ function _kuMapRequest(row) {
     fleksibilnostDana: row.fleksibilnost_dana || null,
     zeljeniMesec: row.zeljeni_mesec || null,
     hitno: !!row.hitno,
+    slikaUrl: row.slika_url || null,
   };
 }
 
@@ -216,6 +217,23 @@ KU.store = {
     _kuCurrentUser = null;
   },
 
+  /* Reset zaboravljene lozinke (dogovoreno 7.9.) — šalje email sa linkom
+     koji vodi na nova-lozinka.html. Supabase automatski otvara privremenu
+     sesiju kad korisnik klikne link iz emaila (detectSessionInUrl), pa ta
+     stranica onda može da pozove postaviNovuLozinku(). */
+  async posaljiResetLozinke(email) {
+    const { error } = await KU_SUPABASE.auth.resetPasswordForEmail(
+      (email || "").trim().toLowerCase(),
+      { redirectTo: window.location.origin + window.location.pathname.replace(/[^/]*$/, "") + "nova-lozinka.html" }
+    );
+    if (error) throw new Error(_kuAuthErrorMessage(error));
+  },
+
+  async postaviNovuLozinku(novaLozinka) {
+    const { error } = await KU_SUPABASE.auth.updateUser({ password: novaLozinka });
+    if (error) throw new Error(_kuAuthErrorMessage(error));
+  },
+
   /* Sinhrono (bez await) — čita iz memorije, popunjeno u init()/login().
      Zato SVAKA stranica mora prvo da uradi "await KU.ready" pre nego što
      pozove ovo ili kuRequireAuth(). */
@@ -249,7 +267,7 @@ KU.store = {
 
   async createRequest({
     klijentId, kategorija, opis, lokacija, zeljeniTermin,
-    tipTermina, datumPocetka, fleksibilnostDana, zeljeniMesec, hitno,
+    tipTermina, datumPocetka, fleksibilnostDana, zeljeniMesec, hitno, slikaUrl,
   }) {
     const row = {
       klijent_id: klijentId,
@@ -263,10 +281,26 @@ KU.store = {
       fleksibilnost_dana: fleksibilnostDana || null,
       zeljeni_mesec: zeljeniMesec || null,
       hitno: !!hitno,
+      slika_url: slikaUrl || null,
     };
     const { data, error } = await KU_SUPABASE.from("requests").insert(row).select().single();
     if (error) throw new Error(error.message);
     return _kuMapRequest(data);
+  },
+
+  /* Otpremanje slike uz hitnu intervenciju (dogovoreno 7.9.) — Supabase
+     Storage, bucket "hitne-slike" (javno čitljiv, vidi db/schema.sql deo
+     7). Vraća javni URL slike koji se onda čuva u requests.slika_url. */
+  async uploadSlikaHitne(file, klijentId) {
+    const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+    const path = `${klijentId}/${Date.now()}-${Math.round(Math.random() * 1e6)}.${ext}`;
+    const { error } = await KU_SUPABASE.storage.from("hitne-slike").upload(path, file, {
+      cacheControl: "3600",
+      upsert: false,
+    });
+    if (error) throw new Error("Slika nije mogla da se otpremi: " + error.message);
+    const { data } = KU_SUPABASE.storage.from("hitne-slike").getPublicUrl(path);
+    return data.publicUrl;
   },
 
   async cancelRequest(id) {
