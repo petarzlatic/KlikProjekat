@@ -72,6 +72,27 @@ const KU_CONFIG = {
     "bravar",
     "bela-tehnika",
   ],
+
+  // HIBRIDNI MEHANIZAM v2 (dogovoreno 10. septembar, vidi
+  // PLAN_Hibridni_Mehanizam_v2.md) — pilot kategorije gde klijent bira
+  // usluge iz spiska + količinu, umesto slobodnog opisa, i sistem
+  // automatski obračunava i predlaže ponude majstorima. Nezavisno od
+  // AKTIVNE_KATEGORIJE (samo dodatno pravilo ZA one koje su i aktivne
+  // i na ovoj listi).
+  AUTOMATSKE_KATEGORIJE: [
+    "krecenje",
+    "ciscenje-redovno",
+    "ciscenje-generalno",
+  ],
+
+  // Kategorije gde klijent može da čekira "Loše stanje objekta /
+  // otežani uslovi za rad" — fiksno uvećanje cene, isto za sve majstore
+  // (Petrova odluka — nije individualno podesivo po majstoru za sada).
+  MODIFIKATOR_KATEGORIJE: [
+    "ciscenje-redovno",
+    "ciscenje-generalno",
+  ],
+  OTEZANI_USLOVI_PROCENAT: 25,
 };
 
 function kuKategorijaNaziv(id) {
@@ -85,6 +106,14 @@ function kuKategorijaAktivna(id) {
 
 function kuKategorijaHitnaDostupna(id) {
   return KU_CONFIG.HITNE_KATEGORIJE.includes(id);
+}
+
+function kuKategorijaAutomatska(id) {
+  return KU_CONFIG.AUTOMATSKE_KATEGORIJE.includes(id);
+}
+
+function kuKategorijaImaModifikator(id) {
+  return KU_CONFIG.MODIFIKATOR_KATEGORIJE.includes(id);
 }
 
 // Kratak opis + ikonica (samo unutrašnji SVG sadržaj, bez <svg> omotača) za
