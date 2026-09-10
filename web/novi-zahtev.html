@@ -32,6 +32,26 @@
         <textarea id="opis" required placeholder="Npr. Krečenje dvosobnog stana, oko 55m2, zidovi u dobrom stanju."></textarea>
       </div>
 
+      <!-- Hibridni mehanizam v2 (10. septembar, vidi PLAN_Hibridni_Mehanizam_v2.md) —
+           za pilot kategorije (krečenje, čišćenje) klijent bira konkretne usluge +
+           kvadraturu umesto da se osloni samo na slobodan opis, a sistem odmah
+           prikazuje okvirnu cenu na osnovu unetih cenovnika izvođača. -->
+      <div class="field" id="ku-stavke-wrap" style="display:none;">
+        <label for="kvadratura">Kvadratura (m²)</label>
+        <input type="number" id="kvadratura" min="1" step="0.5" placeholder="Npr. 55" />
+
+        <div class="mt-3" id="ku-usluge-checklist"></div>
+
+        <div class="mt-3" id="ku-otezani-wrap" style="display:none;">
+          <label style="display:flex; align-items:center; gap:8px; font-weight:400; font-size:0.9rem; border:1px solid var(--color-border); border-radius:8px; padding:8px 10px;">
+            <input type="checkbox" id="otezani-uslovi" />
+            Loše stanje objekta / otežani uslovi za rad (+25% na cenu)
+          </label>
+        </div>
+
+        <div class="hint" id="ku-cena-okvirna"></div>
+      </div>
+
       <div class="field">
         <label for="lokacija">Lokacija</label>
         <select id="lokacija" required></select>
@@ -116,6 +136,97 @@
   }
   fillSelects();
 
+  /* ---- Hibridni mehanizam v2: usluge + kvadratura + okvirna cena ---- */
+  const stanjeStavki = { usluge: [], cenovnik: [] };
+
+  function osveziOkvirnuCenu() {
+    const cenaEl = document.getElementById("ku-cena-okvirna");
+    const kategorija = document.getElementById("kategorija").value;
+    if (!kategorija || !kuKategorijaAutomatska(kategorija)) { cenaEl.textContent = ""; return; }
+
+    const kvadratura = Number(document.getElementById("kvadratura").value);
+    const izabraniIds = Array.from(document.querySelectorAll(".ku-usluga-check:checked")).map((cb) => cb.dataset.uslugaId);
+
+    if (!kvadratura || kvadratura <= 0 || izabraniIds.length === 0) {
+      cenaEl.textContent = "Unesi kvadraturu i izaberi bar jednu uslugu da vidiš okvirnu cenu.";
+      return;
+    }
+
+    const otezanoCb = document.getElementById("otezani-uslovi");
+    const otezano = !!(otezanoCb && otezanoCb.checked && kuKategorijaImaModifikator(kategorija));
+
+    // Grupiši cenovnik po izvođaču, pa zadrži samo one izvođače koji imaju
+    // unetu cenu za SVE trenutno izabrane usluge (samo takvi mogu da daju
+    // kompletnu ponudu za ovu kombinaciju).
+    const poIzvodjacu = {};
+    stanjeStavki.cenovnik.forEach((c) => {
+      if (!izabraniIds.includes(c.uslugaId)) return;
+      if (!poIzvodjacu[c.izvodjacId]) poIzvodjacu[c.izvodjacId] = {};
+      poIzvodjacu[c.izvodjacId][c.uslugaId] = c.cena;
+    });
+
+    const ukupnoPoIzvodjacu = Object.values(poIzvodjacu)
+      .filter((cene) => izabraniIds.every((id) => cene[id] != null))
+      .map((cene) => {
+        let ukupno = izabraniIds.reduce((zbir, id) => zbir + cene[id] * kvadratura, 0);
+        if (otezano) ukupno *= 1 + KU_CONFIG.OTEZANI_USLOVI_PROCENAT / 100;
+        return Math.round(ukupno);
+      });
+
+    if (ukupnoPoIzvodjacu.length === 0) {
+      cenaEl.textContent = "Trenutno nemamo izvođača sa unetim cenama za baš ovu kombinaciju usluga — ipak možeš da objaviš zahtev, javićemo ti se čim se pronađe izvođač.";
+      return;
+    }
+
+    const min = Math.min(...ukupnoPoIzvodjacu);
+    const max = Math.max(...ukupnoPoIzvodjacu);
+    const fmt = (n) => n.toLocaleString("sr-RS");
+    cenaEl.innerHTML = min === max
+      ? `<strong>Okvirna cena: ${fmt(min)} RSD</strong>`
+      : `<strong>Okvirna cena: ${fmt(min)}–${fmt(max)} RSD</strong> (u zavisnosti od izvođača)`;
+  }
+
+  async function osveziStavkeZaKategoriju() {
+    const kategorija = document.getElementById("kategorija").value;
+    const wrap = document.getElementById("ku-stavke-wrap");
+    const listEl = document.getElementById("ku-usluge-checklist");
+    const otezaniWrap = document.getElementById("ku-otezani-wrap");
+    const cenaEl = document.getElementById("ku-cena-okvirna");
+
+    stanjeStavki.usluge = [];
+    stanjeStavki.cenovnik = [];
+    listEl.innerHTML = "";
+    cenaEl.textContent = "";
+
+    if (!kategorija || !kuKategorijaAutomatska(kategorija)) {
+      wrap.style.display = "none";
+      return;
+    }
+    wrap.style.display = "block";
+    otezaniWrap.style.display = kuKategorijaImaModifikator(kategorija) ? "block" : "none";
+
+    const [usluge, cenovnik] = await Promise.all([
+      KU.store.getUslugeByKategorija(kategorija),
+      KU.store.getCenovnikZaKategoriju(kategorija),
+    ]);
+    stanjeStavki.usluge = usluge;
+    stanjeStavki.cenovnik = cenovnik;
+
+    listEl.innerHTML = usluge.map((u, i) => `
+      <label style="display:flex; align-items:center; gap:8px; font-weight:400; font-size:0.9rem; border:1px solid var(--color-border); border-radius:8px; padding:8px 10px; margin-bottom:8px;">
+        <input type="checkbox" class="ku-usluga-check" data-usluga-id="${u.id}" ${i === 0 ? "checked" : ""} />
+        ${kuEscape(u.naziv)}
+      </label>`).join("");
+
+    listEl.querySelectorAll(".ku-usluga-check").forEach((cb) => cb.addEventListener("change", osveziOkvirnuCenu));
+    osveziOkvirnuCenu();
+  }
+
+  document.getElementById("kategorija").addEventListener("change", osveziStavkeZaKategoriju);
+  document.getElementById("kvadratura").addEventListener("input", osveziOkvirnuCenu);
+  document.getElementById("otezani-uslovi").addEventListener("change", osveziOkvirnuCenu);
+  osveziStavkeZaKategoriju();
+
   /* ---- Tip termina: 3 radio-kartice (tačan datum / fleksibilan period / samo mesec) ---- */
   const datumInput = document.getElementById("datum-pocetka");
   const mesecInput = document.getElementById("zeljeni-mesec");
@@ -165,6 +276,28 @@
       return;
     }
 
+    // Hibridni mehanizam v2 — za pilot kategorije mora biti izabrana
+    // kvadratura i bar jedna usluga, jer se na osnovu toga računa ponuda.
+    let stavke = [];
+    let otezaniUslovi = false;
+    if (kuKategorijaAutomatska(kategorija)) {
+      const kvadratura = Number(document.getElementById("kvadratura").value);
+      const izabraneUsluge = Array.from(document.querySelectorAll(".ku-usluga-check:checked")).map((cb) => cb.dataset.uslugaId);
+      if (!kvadratura || kvadratura <= 0) {
+        errBox.textContent = "Unesi kvadraturu (m²).";
+        errBox.classList.add("show");
+        return;
+      }
+      if (izabraneUsluge.length === 0) {
+        errBox.textContent = "Izaberi bar jednu uslugu sa spiska.";
+        errBox.classList.add("show");
+        return;
+      }
+      stavke = izabraneUsluge.map((uslugaId) => ({ uslugaId, kolicina: kvadratura }));
+      const otezaniCb = document.getElementById("otezani-uslovi");
+      otezaniUslovi = !!(otezaniCb && otezaniCb.checked && kuKategorijaImaModifikator(kategorija));
+    }
+
     const datumPocetka = tipTermina !== "fleksibilan_mesec" ? datumInput.value : null;
     const fleksibilnostDana = tipTermina === "fleksibilan_period" ? Number(document.getElementById("fleksibilnost-dana").value) : null;
     const zeljeniMesec = tipTermina === "fleksibilan_mesec" ? mesecInput.value + "-01" : null;
@@ -181,6 +314,8 @@
         datumPocetka,
         fleksibilnostDana,
         zeljeniMesec,
+        stavke,
+        otezaniUslovi,
       });
       kuToast("Zahtev objavljen!");
       window.location.href = "zahtev.html?id=" + req.id;
