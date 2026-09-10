@@ -346,9 +346,14 @@ KU.store = {
      koristi ga live kalkulator okvirne cene na novi-zahtev.html.
      Vraća niz {izvodjacId, uslugaId, cena}. */
   async getCenovnikZaKategoriju(kategorijaId) {
+    // NAPOMENA: usluga_id MORA biti u select-u (ne samo izvodjac_id/cena)
+    // — bez njega bi svaki red mapirao u uslugaId=undefined, pa bi live
+    // kalkulator na novi-zahtev.html mislio da nijedan majstor nema cenu
+    // ni za šta (iako je server-side obračun u generate-auto-offers
+    // koristio drugi upit i ispravno radio).
     const { data, error } = await KU_SUPABASE
       .from("cenovnik")
-      .select("izvodjac_id, cena, usluge!inner(kategorija)")
+      .select("izvodjac_id, usluga_id, cena, usluge!inner(kategorija)")
       .eq("usluge.kategorija", kategorijaId);
     if (error) { console.error(error.message); return []; }
     return (data || []).map((row) => ({
