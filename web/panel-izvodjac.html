@@ -62,15 +62,26 @@
   const user = kuRequireAuth("izvodjac");
   if (!user) return;
 
+  function aktivirajTab(tabId) {
+    document.querySelectorAll(".tab-btn").forEach((b) => b.classList.toggle("active", b.dataset.tab === tabId));
+    document.getElementById("tab-dostupni").style.display = tabId === "dostupni" ? "block" : "none";
+    document.getElementById("tab-predlozi").style.display = tabId === "predlozi" ? "block" : "none";
+    document.getElementById("tab-moje").style.display = tabId === "moje" ? "block" : "none";
+  }
+
   document.querySelectorAll(".tab-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
-      btn.classList.add("active");
-      document.getElementById("tab-dostupni").style.display = btn.dataset.tab === "dostupni" ? "block" : "none";
-      document.getElementById("tab-predlozi").style.display = btn.dataset.tab === "predlozi" ? "block" : "none";
-      document.getElementById("tab-moje").style.display = btn.dataset.tab === "moje" ? "block" : "none";
-    });
+    btn.addEventListener("click", () => aktivirajTab(btn.dataset.tab));
   });
+
+  // Hibridni mehanizam v2 — link sa banera na zahtev.html
+  // ("Otvori 'Predložene ponude'...") vodi ovde sa ?tab=predlozi, da
+  // majstor sleti direktno na tačan tab umesto na podrazumevani
+  // "Dostupni zahtevi" (gde je lako pobrkati dugme "Javi se" za ručnu
+  // ponudu sa potvrđivanjem automatskog predloga).
+  const zeljeniTab = kuQueryParam("tab");
+  if (zeljeniTab === "predlozi" || zeljeniTab === "moje") {
+    aktivirajTab(zeljeniTab);
+  }
 
   function fillFilters() {
     const katSelect = document.getElementById("ku-filter-kat");
@@ -109,8 +120,24 @@
 
     async function requestCard(r) {
       const client = await KU.store.getUserById(r.klijentId);
-      const alreadyOffered = await KU.store.hasOffered(r.id, user.id);
+      // Hibridni mehanizam v2 — ako sistem već ima automatski predlog za
+      // OVAJ zahtev (čeka majstorovu potvrdu), prikaži to umesto običnog
+      // "Javi se" dugmeta — u suprotnom su "Detalji" i "Javi se" izgledali
+      // kao dva ista ekrana, jer zahtev.html u tom slučaju svejedno
+      // prikazuje baner sa predlogom umesto forme za ručnu ponudu.
+      const [alreadyOffered, mojPredlog] = await Promise.all([
+        KU.store.hasOffered(r.id, user.id),
+        kuKategorijaAutomatska(r.kategorija) ? KU.store.getMojPredlogZaZahtev(r.id, user.id) : null,
+      ]);
       const terminText = kuFormatTermin(r);
+      let akcijaHtml;
+      if (mojPredlog) {
+        akcijaHtml = `<a class="btn btn-primary btn-sm" href="panel-izvodjac.html?tab=predlozi">🧮 Čeka tvoju potvrdu</a>`;
+      } else if (alreadyOffered) {
+        akcijaHtml = '<span class="badge badge-pending">Već si se javio/la</span>';
+      } else {
+        akcijaHtml = `<a class="btn btn-primary btn-sm" href="zahtev.html?id=${r.id}#ponudi">Javi se</a>`;
+      }
       return `
         <div class="card card-hover mt-4" ${r.hitno ? 'style="border-color:rgba(197,61,61,0.4);"' : ""}>
           <div class="flex-between" style="flex-wrap:wrap; gap:8px;">
@@ -125,9 +152,7 @@
           <p class="small muted">Klijent: ${kuEscape(client ? client.ime : "—")}</p>
           <div class="flex-between mt-3">
             <a class="btn btn-outline btn-sm" href="zahtev.html?id=${r.id}">Detalji</a>
-            ${alreadyOffered
-              ? '<span class="badge badge-pending">Već si se javio/la</span>'
-              : `<a class="btn btn-primary btn-sm" href="zahtev.html?id=${r.id}#ponudi">Javi se</a>`}
+            ${akcijaHtml}
           </div>
         </div>`;
     }
