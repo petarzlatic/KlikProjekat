@@ -448,6 +448,23 @@ KU.store = {
     return (data || []).map(_kuMapOffer);
   },
 
+  /* Hibridni mehanizam v2 — postoji li VEĆ automatski predlog (status
+     'nacrt') za baš OVAJ zahtev i baš OVOG majstora — koristi se na
+     zahtev.html da mu se prikaže banner/link ka panelu umesto da ostane
+     nesvestan da predlog čeka na njega u tabu "Predložene ponude". */
+  async getMojPredlogZaZahtev(requestId, izvodjacId) {
+    const { data, error } = await KU_SUPABASE
+      .from("offers")
+      .select("*")
+      .eq("request_id", requestId)
+      .eq("izvodjac_id", izvodjacId)
+      .eq("status", "nacrt")
+      .eq("izvor", "automatska")
+      .maybeSingle();
+    if (error) { console.error(error.message); return null; }
+    return _kuMapOffer(data);
+  },
+
   async hasOffered(requestId, izvodjacId) {
     // NAPOMENA: namerno isključuje status 'nacrt' — to je automatski
     // predložena ponuda koju majstor još nije video/potvrdio (Hibridni
