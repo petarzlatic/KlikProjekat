@@ -341,6 +341,20 @@ Na kraju sesije ("večernji pregled"), Claude:
 
 ## 📝 Dnevnik (dopunjuje se svaki dan, najnovije na vrhu)
 
+- **10.09 (šesta dopuna) — Hibridni mehanizam v2: bag u live okvirnoj
+  ceni na novi-zahtev.html.** Petar je javio da je majstorska strana
+  (predlog ponude, potvrda) sad radi odlično, ali okvirna cena PRE
+  slanja zahteva (klijentska strana) se nije pojavljivala. Uzrok nađen
+  pre nego što je test ponovljen: `getCenovnikZaKategoriju` u
+  `store.js` nije tražila kolonu `usluga_id` u SELECT upitu (samo
+  `izvodjac_id, cena`), pa je svaki red cenovnika mapiran sa
+  `uslugaId: undefined` — kalkulator na `novi-zahtev.html` je zato
+  mislio da nijedan majstor nema cenu ni za šta, iako je server-side
+  obračun (`generate-auto-offers`, drugi upit) radio ispravno celo
+  vreme (otud je ponuda majstoru bila tačna, 20.000 RSD). Popravljeno
+  dodavanjem `usluga_id` u select. Fajl: `store.js`. Sintaksno
+  provereno, poslato i sačuvano — čeka se Petrov test.
+
 - **10.09 (peta dopuna) — Hibridni mehanizam v2: drugi krug testa,
   navigacija popravljena.** Posle prve popravke (dole) baner je
   ispravno pokazao obračunatu cenu (20.000 RSD, itemizovano) na
