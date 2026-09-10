@@ -177,7 +177,7 @@
             </div>
             <span class="badge badge-pending">Obračunata cena: ${o.cena != null ? Number(o.cena).toLocaleString("sr-RS") + " RSD" : "—"}</span>
           </div>
-          <p class="small mt-2 mb-0">📍 ${kuEscape(req.lokacija)}</p>
+          <p class="small mt-2 mb-0">📍 ${kuEscape(req.lokacija)} ${kuFormatTermin(req) ? "· 🗓 " + kuEscape(kuFormatTermin(req)) : ""}</p>
           <p class="small mt-2 mb-0">${kuEscape(o.poruka)}</p>
           <div class="flex-between mt-3" style="flex-wrap:wrap; gap:8px;">
             <a class="btn btn-outline btn-sm" href="zahtev.html?id=${req.id}">Detalji zahteva</a>
