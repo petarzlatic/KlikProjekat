@@ -154,6 +154,13 @@
 
   function cenaText(o) {
     const delovi = [];
+    // Hibridni mehanizam v2 — automatski obračunata ukupna cena (vidi
+    // supabase/functions/generate-auto-offers). Poruka već sadrži
+    // itemizovan opis (koja usluga, kvadratura, cena po jedinici), pa se
+    // ovde samo ističe ukupan iznos.
+    if (o.izvor === "automatska" && o.cena != null) {
+      delovi.push(`Ukupno: ${Number(o.cena).toLocaleString("sr-RS")} RSD`);
+    }
     if (o.cenaIzlaska != null) delovi.push(`Izlazak: ${o.cenaIzlaska} din`);
     if (o.cenaPopravkeOd != null && o.cenaPopravkeDo != null) {
       delovi.push(`Popravka (procena): ${o.cenaPopravkeOd}–${o.cenaPopravkeDo} din`);
@@ -162,6 +169,9 @@
   }
 
   function myOfferSummary(o) {
+    if (o.izvor === "automatska" && o.cena != null) {
+      return `Poslao/la si automatski obračunatu ponudu (${Number(o.cena).toLocaleString("sr-RS")} RSD) — čekaš odgovor klijenta.`;
+    }
     if (o.cenaIzlaska != null || o.cenaPopravkeOd != null) {
       const cena = cenaText(o);
       return "Poslao/la si ponudu" + (cena ? " (" + cena + ")" : "") + (o.poruka ? ` — „${kuEscape(o.poruka)}"` : "");
