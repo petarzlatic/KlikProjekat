@@ -341,6 +341,23 @@ Na kraju sesije ("večernji pregled"), Claude:
 
 ## 📝 Dnevnik (dopunjuje se svaki dan, najnovije na vrhu)
 
+- **10.09 (peta dopuna) — Hibridni mehanizam v2: drugi krug testa,
+  navigacija popravljena.** Posle prve popravke (dole) baner je
+  ispravno pokazao obračunatu cenu (20.000 RSD, itemizovano) na
+  `zahtev.html`. Novi bag: dugme na baneru ("Otvori Predložene
+  ponude...") vodilo je na `panel-izvodjac.html` bez podataka koji tab
+  da otvori, pa je majstor sletao na podrazumevani "Dostupni zahtevi"
+  umesto na tab sa Potvrdi/Ne mogu dugmadima — delovalo je kao da ga
+  "vraća na početni ekran". Dodatno, u "Dostupni zahtevi" listi su
+  "Detalji" i "Javi se" dugmad vodila na identičan ekran (baner), jer
+  `zahtev.html` prikazuje baner umesto forme za ručnu ponudu čim predlog
+  postoji. Popravljeno: link sa banera sad ide na
+  `panel-izvodjac.html?tab=predlozi` (panel čita taj parametar i odmah
+  otvara pravi tab); kartica zahteva u "Dostupni zahtevi" sad prikazuje
+  "🧮 Čeka tvoju potvrdu" (vodi pravo na tab predloga) umesto "Javi se"
+  kad predlog već postoji za taj zahtev. Fajlovi: `panel-izvodjac.html`,
+  `zahtev.html`. Sintaksno provereno, poslato i sačuvano.
+
 - **10.09 (četvrta dopuna) — Hibridni mehanizam v2: prvi živi test, 2
   bagova nađena i popravljena.** Petar je deploy-ovao sve (SQL, upload,
   nova Edge Function, novi webhook) i testirao kao klijent i majstor sa
