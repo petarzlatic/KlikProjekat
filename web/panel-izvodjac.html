@@ -25,6 +25,7 @@
 
     <div class="tabs mt-5">
       <button class="tab-btn active" data-tab="dostupni" type="button">Dostupni zahtevi</button>
+      <button class="tab-btn" data-tab="predlozi" type="button">Predložene ponude <span id="ku-predlozi-broj"></span></button>
       <button class="tab-btn" data-tab="moje" type="button">Moje ponude</button>
     </div>
 
@@ -34,6 +35,14 @@
         <select id="ku-filter-loc"></select>
       </div>
       <div id="ku-open-list"></div>
+    </div>
+
+    <!-- Hibridni mehanizam v2 — sistem sam obračuna cenu na osnovu majstorovog
+         cenovnika i predloži ponudu; klijent je ne vidi dok je majstor ovde
+         ne potvrdi ili ne odbije. -->
+    <div id="tab-predlozi" style="display:none;">
+      <p class="small muted mt-3">Ovo su ponude koje je sistem sam obračunao na osnovu tvog cenovnika. Klijent ih još ne vidi — proveri iznos i potvrdi, ili odbij ako ti ne odgovara.</p>
+      <div id="ku-predlozi-list"></div>
     </div>
 
     <div id="tab-moje" style="display:none;">
@@ -58,6 +67,7 @@
       document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
       btn.classList.add("active");
       document.getElementById("tab-dostupni").style.display = btn.dataset.tab === "dostupni" ? "block" : "none";
+      document.getElementById("tab-predlozi").style.display = btn.dataset.tab === "predlozi" ? "block" : "none";
       document.getElementById("tab-moje").style.display = btn.dataset.tab === "moje" ? "block" : "none";
     });
   });
@@ -136,6 +146,83 @@
     mount.innerHTML = html;
   }
 
+  /* Hibridni mehanizam v2 — "Predložene ponude" (automatske, status 'nacrt').
+     Majstor ovde vidi obračunatu cenu i bira Potvrdi/Odbij; dok se ne izjasni,
+     klijent tu ponudu uopšte ne vidi. */
+  async function renderPredlozi() {
+    const predlozi = await KU.store.getPredlozenePonude(user.id);
+    const brojEl = document.getElementById("ku-predlozi-broj");
+    brojEl.textContent = predlozi.length > 0 ? `(${predlozi.length})` : "";
+
+    const mount = document.getElementById("ku-predlozi-list");
+    if (predlozi.length === 0) {
+      mount.innerHTML = `
+        <div class="empty-state card mt-4">
+          <div class="icon-circle">🧮</div>
+          <h3>Trenutno nema predloga</h3>
+          <p>Kad stigne novi zahtev za uslugu iz tvog cenovnika, sistem će ovde predložiti obračunatu cenu.</p>
+        </div>`;
+      return;
+    }
+
+    const cards = await Promise.all(predlozi.map(async (o) => {
+      const req = await KU.store.getRequestById(o.requestId);
+      if (!req) return "";
+      return `
+        <div class="card mt-4" data-offer-id="${o.id}">
+          <div class="flex-between" style="flex-wrap:wrap; gap:8px;">
+            <div>
+              <span class="badge" style="background:var(--color-primary-lighter); color:var(--color-primary);">${kuEscape(kuKategorijaNaziv(req.kategorija))}</span>
+              <h3 class="mt-2 mb-0">${kuEscape(req.opis).slice(0, 90)}${req.opis.length > 90 ? "…" : ""}</h3>
+            </div>
+            <span class="badge badge-pending">Obračunata cena: ${o.cena != null ? Number(o.cena).toLocaleString("sr-RS") + " RSD" : "—"}</span>
+          </div>
+          <p class="small mt-2 mb-0">📍 ${kuEscape(req.lokacija)}</p>
+          <p class="small mt-2 mb-0">${kuEscape(o.poruka)}</p>
+          <div class="flex-between mt-3" style="flex-wrap:wrap; gap:8px;">
+            <a class="btn btn-outline btn-sm" href="zahtev.html?id=${req.id}">Detalji zahteva</a>
+            <div class="flex gap-2">
+              <button type="button" class="btn btn-outline btn-sm ku-odbij-predlog">Ne mogu</button>
+              <button type="button" class="btn btn-primary btn-sm ku-potvrdi-predlog">Potvrdi ponudu</button>
+            </div>
+          </div>
+        </div>`;
+    }));
+    mount.innerHTML = cards.join("");
+
+    mount.querySelectorAll(".ku-potvrdi-predlog").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const card = btn.closest("[data-offer-id]");
+        const offerId = card.dataset.offerId;
+        btn.disabled = true;
+        try {
+          await KU.store.potvrdiAutomatskuPonudu(offerId);
+          kuToast("Ponuda potvrđena — klijent je sad vidi.");
+          await renderPredlozi();
+          await renderMyOffers();
+        } catch (err) {
+          kuToast("Greška: " + err.message);
+          btn.disabled = false;
+        }
+      });
+    });
+    mount.querySelectorAll(".ku-odbij-predlog").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const card = btn.closest("[data-offer-id]");
+        const offerId = card.dataset.offerId;
+        btn.disabled = true;
+        try {
+          await KU.store.odbijAutomatskuPonudu(offerId);
+          kuToast("Predlog odbijen.");
+          await renderPredlozi();
+        } catch (err) {
+          kuToast("Greška: " + err.message);
+          btn.disabled = false;
+        }
+      });
+    });
+  }
+
   async function renderMyOffers() {
     const offers = (await KU.store.getOffersByIzvodjac(user.id)).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
     const mount = document.getElementById("ku-my-offers-list");
@@ -179,6 +266,7 @@
   document.getElementById("ku-user-ime").textContent = user ? user.ime.split(" ")[0] : "";
   fillFilters();
   await renderOpen();
+  await renderPredlozi();
   await renderMyOffers();
 })().catch((err) => { console.error(err); kuToast("Greška: " + err.message); });
 </script>
