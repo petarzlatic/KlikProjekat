@@ -133,7 +133,7 @@
               <h3 class="mt-0">🧮 Sistem ti predlaže gotovu ponudu za ovaj zahtev</h3>
               <p class="mb-2"><strong>${mojPredlog.cena != null ? Number(mojPredlog.cena).toLocaleString("sr-RS") + " RSD" : "—"}</strong> — obračunato na osnovu tvog cenovnika.</p>
               <p class="small mb-3">${kuEscape(mojPredlog.poruka)}</p>
-              <a class="btn btn-primary btn-sm" href="panel-izvodjac.html">Otvori "Predložene ponude" i potvrdi ili odbij</a>
+              <a class="btn btn-primary btn-sm" href="panel-izvodjac.html?tab=predlozi">Otvori "Predložene ponude" i potvrdi ili odbij</a>
             </div>`;
         } else if (aktivnaPonuda) {
           html += `<div class="success-box">${myOfferSummary(aktivnaPonuda)} — čekaš odgovor klijenta.</div>`;
