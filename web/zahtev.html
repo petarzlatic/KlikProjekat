@@ -53,6 +53,11 @@
     const offers = await KU.store.getOffersByRequest(req.id);
     const acceptedOffer = offers.find((o) => o.status === "prihvacena");
     const myOffer = isProvider ? offers.find((o) => o.izvodjacId === user.id) : null;
+    // Hibridni mehanizam v2 — da li sistem već predlaže automatsku ponudu
+    // za ovaj zahtev baš ovom majstoru (čeka njegovu potvrdu u panelu).
+    const mojPredlog = (isProvider && req.status === "otvoren")
+      ? await KU.store.getMojPredlogZaZahtev(req.id, user.id)
+      : null;
 
     const terminText = kuFormatTermin(req);
     let html = `
@@ -117,8 +122,21 @@
     /* ---------- Prikaz za IZVOĐAČA ---------- */
     if (isProvider) {
       if (req.status === "otvoren") {
-        if (myOffer) {
-          html += `<div class="success-box">${myOfferSummary(myOffer)} — čekaš odgovor klijenta.</div>`;
+        // NAPOMENA: myOffer može biti status 'odbijena' ako je majstor
+        // sam odbio SVOJ automatski predlog (dugme "Ne mogu" u tabu
+        // "Predložene ponude") — zahtev ostaje otvoren i dalje, pa to NE
+        // treba prikazati kao "poslao/la si ponudu, čekaš odgovor".
+        const aktivnaPonuda = myOffer && myOffer.status !== "odbijena" ? myOffer : null;
+        if (mojPredlog) {
+          html += `
+            <div class="card mt-3" style="border-color:var(--color-primary-light); background:var(--color-primary-lighter);">
+              <h3 class="mt-0">🧮 Sistem ti predlaže gotovu ponudu za ovaj zahtev</h3>
+              <p class="mb-2"><strong>${mojPredlog.cena != null ? Number(mojPredlog.cena).toLocaleString("sr-RS") + " RSD" : "—"}</strong> — obračunato na osnovu tvog cenovnika.</p>
+              <p class="small mb-3">${kuEscape(mojPredlog.poruka)}</p>
+              <a class="btn btn-primary btn-sm" href="panel-izvodjac.html">Otvori "Predložene ponude" i potvrdi ili odbij</a>
+            </div>`;
+        } else if (aktivnaPonuda) {
+          html += `<div class="success-box">${myOfferSummary(aktivnaPonuda)} — čekaš odgovor klijenta.</div>`;
         } else {
           html += `<div id="ponudi"></div><h2>Javi se na ovaj zahtev</h2>` + offerFormHtml(req);
         }
