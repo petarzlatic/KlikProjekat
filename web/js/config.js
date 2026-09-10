@@ -93,6 +93,31 @@ const KU_CONFIG = {
     "ciscenje-generalno",
   ],
   OTEZANI_USLOVI_PROCENAT: 25,
+
+  // Koje TAČNO usluge (i kojim redosledom) se nude kao kvačice na
+  // novi-zahtev.html za pilot kategorije — NAMERNO uže od pune liste u
+  // katalogu usluga. Razlog: katalog (odeljak 4/8 u schema.sql) ima i
+  // starije/nepovezane stavke iz iste kategorije (npr. kod krečenja:
+  // "Farbanje radijatora", "Skidanje stare tapete", i "Krečenje u boji
+  // (sa gletovanjem)" — stara stavka koja VEĆ uključuje gletovanje, pa
+  // bi se lako pobrkala sa biranjem "Krečenje zidova i plafona" +
+  // "Gletovanje" posebno). Bez ovog filtera klijent bi mogao da čekira
+  // pogrešnu/nepovezanu stavku i dobije "nema izvođača sa cenom" iako
+  // je tehnički tražio krečenje. Prva stavka u nizu je podrazumevano
+  // čekirana.
+  AUTOMATSKE_USLUGE: {
+    "krecenje": [
+      "Krečenje zidova i plafona (belo)",
+      "Gletovanje zidova (priprema pre bojenja)",
+      "Priprema prostora za krečenje (zaštita nameštaja/poda)",
+    ],
+    "ciscenje-redovno": [
+      "Redovno čišćenje stana",
+    ],
+    "ciscenje-generalno": [
+      "Generalno čišćenje stana",
+    ],
+  },
 };
 
 function kuKategorijaNaziv(id) {
