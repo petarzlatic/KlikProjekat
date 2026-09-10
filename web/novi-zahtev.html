@@ -205,10 +205,21 @@
     wrap.style.display = "block";
     otezaniWrap.style.display = kuKategorijaImaModifikator(kategorija) ? "block" : "none";
 
-    const [usluge, cenovnik] = await Promise.all([
+    const [sveUslugeKategorije, cenovnik] = await Promise.all([
       KU.store.getUslugeByKategorija(kategorija),
       KU.store.getCenovnikZaKategoriju(kategorija),
     ]);
+
+    // Filtriraj i poređaj po KU_CONFIG.AUTOMATSKE_USLUGE — katalog ima i
+    // starije/nepovezane stavke iz iste kategorije koje ovde ne treba
+    // nuditi (vidi napomenu uz AUTOMATSKE_USLUGE u config.js).
+    const dozvoljeniNazivi = (KU_CONFIG.AUTOMATSKE_USLUGE || {})[kategorija];
+    const usluge = dozvoljeniNazivi
+      ? dozvoljeniNazivi
+          .map((naziv) => sveUslugeKategorije.find((u) => u.naziv === naziv))
+          .filter(Boolean)
+      : sveUslugeKategorije;
+
     stanjeStavki.usluge = usluge;
     stanjeStavki.cenovnik = cenovnik;
 
