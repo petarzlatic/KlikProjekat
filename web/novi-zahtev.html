@@ -32,13 +32,15 @@
         <textarea id="opis" required placeholder="Npr. Krečenje dvosobnog stana, oko 55m2, zidovi u dobrom stanju."></textarea>
       </div>
 
-      <!-- Hibridni mehanizam v2 (10. septembar, vidi PLAN_Hibridni_Mehanizam_v2.md) —
-           za pilot kategorije (krečenje, čišćenje) klijent bira konkretne usluge +
-           kvadraturu umesto da se osloni samo na slobodan opis, a sistem odmah
-           prikazuje okvirnu cenu na osnovu unetih cenovnika izvođača. -->
+      <!-- Hibridni mehanizam v2/v3 (10. i 20. septembar, vidi
+           PLAN_Hibridni_Mehanizam_v2.md i _v3.md) — za automatske kategorije
+           klijent bira konkretne usluge iz punog kataloga i za svaku unosi
+           količinu prilagođenu njenoj jedinici mere (umesto slobodnog opisa
+           i jedne deljene kvadrature), a sistem odmah prikazuje okvirnu cenu
+           na osnovu unetih cenovnika izvođača. -->
       <div class="field" id="ku-stavke-wrap" style="display:none;">
-        <label for="kvadratura">Kvadratura (m²)</label>
-        <input type="number" id="kvadratura" min="1" step="0.5" placeholder="Npr. 55" />
+        <label>Izaberi usluge</label>
+        <div class="hint mb-2">Čekiraj šta ti treba i unesi količinu (gde je primenljivo). Za stavke koje zahtevaju procenu na licu mesta majstor šalje ponudu posle pregleda.</div>
 
         <div class="mt-3" id="ku-usluge-checklist"></div>
 
@@ -136,19 +138,53 @@
   }
   fillSelects();
 
-  /* ---- Hibridni mehanizam v2: usluge + kvadratura + okvirna cena ---- */
+  /* ---- Hibridni mehanizam v3 (20. septembar, vidi PLAN_Hibridni_Mehanizam_v3.md):
+     pun katalog usluga po kategoriji + količina po stavci + okvirna cena.
+     Stavke sa procenaPotrebna=true (npr. kompletno renoviranje kupatila,
+     rušenje/demontaža) NE ulaze u automatski zbir — samo se prikazuju kao
+     napomena da majstor šalje ponudu posle pregleda na licu mesta. ---- */
   const stanjeStavki = { usluge: [], cenovnik: [] };
 
   function osveziOkvirnuCenu() {
     const cenaEl = document.getElementById("ku-cena-okvirna");
     const kategorija = document.getElementById("kategorija").value;
-    if (!kategorija || !kuKategorijaAutomatska(kategorija)) { cenaEl.textContent = ""; return; }
+    if (!kategorija || !kuKategorijaAutomatska(kategorija)) { cenaEl.innerHTML = ""; return; }
 
-    const kvadratura = Number(document.getElementById("kvadratura").value);
-    const izabraniIds = Array.from(document.querySelectorAll(".ku-usluga-check:checked")).map((cb) => cb.dataset.uslugaId);
+    const redovi = Array.from(document.querySelectorAll(".ku-usluga-red"));
+    const izabrani = redovi.filter((red) => red.querySelector(".ku-usluga-check").checked);
 
-    if (!kvadratura || kvadratura <= 0 || izabraniIds.length === 0) {
-      cenaEl.textContent = "Unesi kvadraturu i izaberi bar jednu uslugu da vidiš okvirnu cenu.";
+    if (izabrani.length === 0) {
+      cenaEl.innerHTML = "Izaberi bar jednu uslugu da vidiš okvirnu cenu.";
+      return;
+    }
+
+    // Razdvoji izabrano na "auto" stavke (ulaze u zbir) i "procena" stavke
+    // (ne ulaze, samo se pominju kao napomena).
+    const autoStavke = [];
+    const procenaNazivi = [];
+    let nedostajeKolicina = false;
+
+    izabrani.forEach((red) => {
+      const id = red.dataset.uslugaId;
+      if (red.dataset.procena === "1") {
+        const usluga = stanjeStavki.usluge.find((u) => u.id === id);
+        procenaNazivi.push(usluga ? usluga.naziv : id);
+        return;
+      }
+      const qtyInput = red.querySelector(".ku-usluga-kolicina");
+      const kolicina = qtyInput ? Number(qtyInput.value) : 1;
+      if (qtyInput && (!kolicina || kolicina <= 0)) { nedostajeKolicina = true; return; }
+      autoStavke.push({ id, kolicina });
+    });
+
+    if (nedostajeKolicina) {
+      cenaEl.innerHTML = "Unesi količinu (veću od 0) za sve izabrane usluge.";
+      return;
+    }
+    if (autoStavke.length === 0) {
+      cenaEl.innerHTML = procenaNazivi.length
+        ? `Za izabrano (${procenaNazivi.map(kuEscape).join(", ")}) majstor šalje ponudu posle procene na licu mesta.`
+        : "";
       return;
     }
 
@@ -156,34 +192,39 @@
     const otezano = !!(otezanoCb && otezanoCb.checked && kuKategorijaImaModifikator(kategorija));
 
     // Grupiši cenovnik po izvođaču, pa zadrži samo one izvođače koji imaju
-    // unetu cenu za SVE trenutno izabrane usluge (samo takvi mogu da daju
-    // kompletnu ponudu za ovu kombinaciju).
+    // unetu cenu za SVE trenutno izabrane "auto" usluge (samo takvi mogu da
+    // daju kompletnu ponudu za ovu kombinaciju).
+    const autoIds = autoStavke.map((s) => s.id);
     const poIzvodjacu = {};
     stanjeStavki.cenovnik.forEach((c) => {
-      if (!izabraniIds.includes(c.uslugaId)) return;
+      if (!autoIds.includes(c.uslugaId)) return;
       if (!poIzvodjacu[c.izvodjacId]) poIzvodjacu[c.izvodjacId] = {};
       poIzvodjacu[c.izvodjacId][c.uslugaId] = c.cena;
     });
 
     const ukupnoPoIzvodjacu = Object.values(poIzvodjacu)
-      .filter((cene) => izabraniIds.every((id) => cene[id] != null))
+      .filter((cene) => autoIds.every((id) => cene[id] != null))
       .map((cene) => {
-        let ukupno = izabraniIds.reduce((zbir, id) => zbir + cene[id] * kvadratura, 0);
+        let ukupno = autoStavke.reduce((zbir, s) => zbir + cene[s.id] * s.kolicina, 0);
         if (otezano) ukupno *= 1 + KU_CONFIG.OTEZANI_USLOVI_PROCENAT / 100;
         return Math.round(ukupno);
       });
 
-    if (ukupnoPoIzvodjacu.length === 0) {
-      cenaEl.textContent = "Trenutno nemamo izvođača sa unetim cenama za baš ovu kombinaciju usluga — ipak možeš da objaviš zahtev, javićemo ti se čim se pronađe izvođač.";
-      return;
-    }
-
-    const min = Math.min(...ukupnoPoIzvodjacu);
-    const max = Math.max(...ukupnoPoIzvodjacu);
     const fmt = (n) => n.toLocaleString("sr-RS");
-    cenaEl.innerHTML = min === max
-      ? `<strong>Okvirna cena: ${fmt(min)} RSD</strong>`
-      : `<strong>Okvirna cena: ${fmt(min)}–${fmt(max)} RSD</strong> (u zavisnosti od izvođača)`;
+    let html;
+    if (ukupnoPoIzvodjacu.length === 0) {
+      html = "Trenutno nemamo izvođača sa unetim cenama za baš ovu kombinaciju usluga — ipak možeš da objaviš zahtev, javićemo ti se čim se pronađe izvođač.";
+    } else {
+      const min = Math.min(...ukupnoPoIzvodjacu);
+      const max = Math.max(...ukupnoPoIzvodjacu);
+      html = min === max
+        ? `<strong>Okvirna cena: ${fmt(min)} RSD</strong>`
+        : `<strong>Okvirna cena: ${fmt(min)}–${fmt(max)} RSD</strong> (u zavisnosti od izvođača)`;
+    }
+    if (procenaNazivi.length) {
+      html += `<div class="mt-2">+ procena na licu mesta za: ${procenaNazivi.map(kuEscape).join(", ")}</div>`;
+    }
+    cenaEl.innerHTML = html;
   }
 
   async function osveziStavkeZaKategoriju() {
@@ -196,7 +237,7 @@
     stanjeStavki.usluge = [];
     stanjeStavki.cenovnik = [];
     listEl.innerHTML = "";
-    cenaEl.textContent = "";
+    cenaEl.innerHTML = "";
 
     if (!kategorija || !kuKategorijaAutomatska(kategorija)) {
       wrap.style.display = "none";
@@ -205,36 +246,50 @@
     wrap.style.display = "block";
     otezaniWrap.style.display = kuKategorijaImaModifikator(kategorija) ? "block" : "none";
 
-    const [sveUslugeKategorije, cenovnik] = await Promise.all([
+    // Pun katalog usluga za kategoriju — više nema ručno kurirane liste
+    // (KU_CONFIG.AUTOMATSKE_USLUGE je uklonjena u v3), katalog sad sam nosi
+    // dovoljno informacija (jedinicaMere, procenaPotrebna) da UI zna kako
+    // da prikaže svaku stavku.
+    const [usluge, cenovnik] = await Promise.all([
       KU.store.getUslugeByKategorija(kategorija),
       KU.store.getCenovnikZaKategoriju(kategorija),
     ]);
 
-    // Filtriraj i poređaj po KU_CONFIG.AUTOMATSKE_USLUGE — katalog ima i
-    // starije/nepovezane stavke iz iste kategorije koje ovde ne treba
-    // nuditi (vidi napomenu uz AUTOMATSKE_USLUGE u config.js).
-    const dozvoljeniNazivi = (KU_CONFIG.AUTOMATSKE_USLUGE || {})[kategorija];
-    const usluge = dozvoljeniNazivi
-      ? dozvoljeniNazivi
-          .map((naziv) => sveUslugeKategorije.find((u) => u.naziv === naziv))
-          .filter(Boolean)
-      : sveUslugeKategorije;
-
     stanjeStavki.usluge = usluge;
     stanjeStavki.cenovnik = cenovnik;
 
-    listEl.innerHTML = usluge.map((u, i) => `
-      <label style="display:flex; align-items:center; gap:8px; font-weight:400; font-size:0.9rem; border:1px solid var(--color-border); border-radius:8px; padding:8px 10px; margin-bottom:8px;">
-        <input type="checkbox" class="ku-usluga-check" data-usluga-id="${u.id}" ${i === 0 ? "checked" : ""} />
-        ${kuEscape(u.naziv)}
-      </label>`).join("");
+    listEl.innerHTML = usluge.map((u) => {
+      // procenaPotrebna stavke nikad ne traže količinu, bez obzira na
+      // jedinicu mere — vidi PLAN_Hibridni_Mehanizam_v3.md, sekcija 3.2.
+      const traziUnos = !u.procenaPotrebna && kuJedinicaTraziUnosKolicine(u.jedinicaMere);
+      const podrazumevanaKolicina = u.jedinicaMere === "komad" ? 1 : "";
+      return `
+      <div class="ku-usluga-red" data-usluga-id="${u.id}" data-procena="${u.procenaPotrebna ? "1" : "0"}" style="margin-bottom:8px;">
+        <label style="display:flex; align-items:center; gap:8px; font-weight:400; font-size:0.9rem; border:1px solid var(--color-border); border-radius:8px; padding:8px 10px;">
+          <input type="checkbox" class="ku-usluga-check" data-usluga-id="${u.id}" />
+          <span style="flex:1;">${kuEscape(u.naziv)} <span style="opacity:0.6; font-size:0.85em;">(${kuEscape(u.jedinicaMere)})</span></span>
+          ${traziUnos ? `<input type="number" class="ku-usluga-kolicina" data-usluga-id="${u.id}" min="0.1" step="0.1" value="${podrazumevanaKolicina}" placeholder="količina" style="display:none; width:90px;" />` : ""}
+        </label>
+        ${u.procenaPotrebna ? `<div class="ku-usluga-procena-note hint" style="display:none; margin:4px 0 0 30px;">Za ovo je potrebna procena na licu mesta — javi detalje u opisu, majstor će ti poslati posebnu ponudu.</div>` : ""}
+      </div>`;
+    }).join("");
 
-    listEl.querySelectorAll(".ku-usluga-check").forEach((cb) => cb.addEventListener("change", osveziOkvirnuCenu));
+    listEl.querySelectorAll(".ku-usluga-check").forEach((cb) => {
+      cb.addEventListener("change", () => {
+        const red = cb.closest(".ku-usluga-red");
+        const qtyInput = red.querySelector(".ku-usluga-kolicina");
+        if (qtyInput) qtyInput.style.display = cb.checked ? "inline-block" : "none";
+        const note = red.querySelector(".ku-usluga-procena-note");
+        if (note) note.style.display = cb.checked ? "block" : "none";
+        osveziOkvirnuCenu();
+      });
+    });
+    listEl.querySelectorAll(".ku-usluga-kolicina").forEach((inp) => inp.addEventListener("input", osveziOkvirnuCenu));
+
     osveziOkvirnuCenu();
   }
 
   document.getElementById("kategorija").addEventListener("change", osveziStavkeZaKategoriju);
-  document.getElementById("kvadratura").addEventListener("input", osveziOkvirnuCenu);
   document.getElementById("otezani-uslovi").addEventListener("change", osveziOkvirnuCenu);
   osveziStavkeZaKategoriju();
 
@@ -287,24 +342,36 @@
       return;
     }
 
-    // Hibridni mehanizam v2 — za pilot kategorije mora biti izabrana
-    // kvadratura i bar jedna usluga, jer se na osnovu toga računa ponuda.
+    // Hibridni mehanizam v3 — za automatske kategorije mora biti izabrana
+    // bar jedna usluga, svaka sa svojom količinom (vidi
+    // PLAN_Hibridni_Mehanizam_v3.md). Stavke koje zahtevaju procenu na licu
+    // mesta se šalju sa kolicina=1 (baza to i dalje zahteva > 0), obračun
+    // cene ih svejedno ne uzima u zbir (vidi generate-auto-offers).
     let stavke = [];
     let otezaniUslovi = false;
     if (kuKategorijaAutomatska(kategorija)) {
-      const kvadratura = Number(document.getElementById("kvadratura").value);
-      const izabraneUsluge = Array.from(document.querySelectorAll(".ku-usluga-check:checked")).map((cb) => cb.dataset.uslugaId);
-      if (!kvadratura || kvadratura <= 0) {
-        errBox.textContent = "Unesi kvadraturu (m²).";
-        errBox.classList.add("show");
-        return;
-      }
-      if (izabraneUsluge.length === 0) {
+      const izabraniRedovi = Array.from(document.querySelectorAll(".ku-usluga-red")).filter((red) => red.querySelector(".ku-usluga-check").checked);
+      if (izabraniRedovi.length === 0) {
         errBox.textContent = "Izaberi bar jednu uslugu sa spiska.";
         errBox.classList.add("show");
         return;
       }
-      stavke = izabraneUsluge.map((uslugaId) => ({ uslugaId, kolicina: kvadratura }));
+      let greskaKolicina = false;
+      stavke = izabraniRedovi.map((red) => {
+        const uslugaId = red.dataset.uslugaId;
+        const qtyInput = red.querySelector(".ku-usluga-kolicina");
+        let kolicina = 1;
+        if (qtyInput) {
+          kolicina = Number(qtyInput.value);
+          if (!kolicina || kolicina <= 0) greskaKolicina = true;
+        }
+        return { uslugaId, kolicina };
+      });
+      if (greskaKolicina) {
+        errBox.textContent = "Unesi količinu (veću od 0) za sve izabrane usluge.";
+        errBox.classList.add("show");
+        return;
+      }
       const otezaniCb = document.getElementById("otezani-uslovi");
       otezaniUslovi = !!(otezaniCb && otezaniCb.checked && kuKategorijaImaModifikator(kategorija));
     }
