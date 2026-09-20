@@ -64,7 +64,10 @@ function _kuMapRequest(row) {
   };
 }
 
-/* Hibridni mehanizam v2 (10. septembar) — vidi PLAN_Hibridni_Mehanizam_v2.md */
+/* Hibridni mehanizam v2 (10. septembar) — vidi PLAN_Hibridni_Mehanizam_v2.md.
+   procenaPotrebna dodato u v3 (20. septembar, vidi
+   PLAN_Hibridni_Mehanizam_v3.md) — true znači da stavka ne ulazi u
+   automatski zbir cene, već zahteva procenu na licu mesta. */
 function _kuMapUsluga(row) {
   if (!row) return null;
   return {
@@ -72,6 +75,7 @@ function _kuMapUsluga(row) {
     kategorija: row.kategorija,
     naziv: row.naziv,
     jedinicaMere: row.jedinica_mere,
+    procenaPotrebna: !!row.procena_potrebna,
   };
 }
 
