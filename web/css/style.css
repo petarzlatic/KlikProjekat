@@ -544,6 +544,15 @@ textarea { resize: vertical; min-height: 90px; }
 /* ---------- Sekcije ---------- */
 section.section { padding: var(--space-8) 0; }
 section.section.alt { background: var(--color-primary-lighter); }
+
+/* "Problem koji rešavamo" + "Kako platforma radi" — foto pozadina
+   (dogovoreno 21.9.), samo za ove dve sekcije, ne dira ostatak sajta. */
+.story-band {
+  position: relative;
+  background: url('../img/hero-problem.jpg') center 30% / cover no-repeat;
+}
+.story-band section.section { background: rgba(255,255,255,0.45); }
+.story-band section.section.alt { background: rgba(234,241,254,0.82); }
 .section-head { max-width: 620px; margin: 0 auto var(--space-6); text-align: center; }
 .eyebrow {
   color: var(--color-accent);
@@ -571,6 +580,15 @@ section.section.alt { background: var(--color-primary-lighter); }
   align-items: flex-start;
   position: relative;
 }
+.step-icon {
+  display: block;
+  width: 100%;
+  text-align: center;
+  margin-top: var(--space-2);
+  font-size: 1.4rem;
+  line-height: 1;
+}
+.step-icon.stars { font-size: 1rem; letter-spacing: 2px; }
 /* Minijaturna strelica ka sledećem koraku (dogovoreno 7.9.) — ne menja
    ništa u strukturi, samo vizuelno pokazuje redosled koraka. Udesno na
    desktopu (4 kolone), naniže na mobilnom (koraci se ređaju u 1 kolonu). */
