@@ -173,12 +173,16 @@
       }
       const qtyInput = red.querySelector(".ku-usluga-kolicina");
       const kolicina = qtyInput ? Number(qtyInput.value) : 1;
-      if (qtyInput && (!kolicina || kolicina <= 0)) { nedostajeKolicina = true; return; }
+      const jeKomad = red.dataset.jm === "komad";
+      if (qtyInput && (!kolicina || kolicina <= 0 || (jeKomad && !Number.isInteger(kolicina)))) {
+        nedostajeKolicina = true;
+        return;
+      }
       autoStavke.push({ id, kolicina });
     });
 
     if (nedostajeKolicina) {
-      cenaEl.innerHTML = "Unesi količinu (veću od 0) za sve izabrane usluge.";
+      cenaEl.innerHTML = "Unesi ispravnu količinu za sve izabrane usluge (ceo broj za \"komad\" stavke, veću od 0).";
       return;
     }
     if (autoStavke.length === 0) {
@@ -262,13 +266,18 @@
       // procenaPotrebna stavke nikad ne traže količinu, bez obzira na
       // jedinicu mere — vidi PLAN_Hibridni_Mehanizam_v3.md, sekcija 3.2.
       const traziUnos = !u.procenaPotrebna && kuJedinicaTraziUnosKolicine(u.jedinicaMere);
-      const podrazumevanaKolicina = u.jedinicaMere === "komad" ? 1 : "";
+      const jeKomad = u.jedinicaMere === "komad";
+      // "komad" je uvek ceo broj (1, 2, 3...) — ostale jedinice (m²/m¹/kg/sat)
+      // dozvoljavaju decimale.
+      const koracKolicine = jeKomad ? "1" : "0.1";
+      const minKolicine = jeKomad ? "1" : "0.1";
+      const podrazumevanaKolicina = jeKomad ? 1 : "";
       return `
-      <div class="ku-usluga-red" data-usluga-id="${u.id}" data-procena="${u.procenaPotrebna ? "1" : "0"}" style="margin-bottom:8px;">
+      <div class="ku-usluga-red" data-usluga-id="${u.id}" data-procena="${u.procenaPotrebna ? "1" : "0"}" data-jm="${kuEscape(u.jedinicaMere)}" style="margin-bottom:8px;">
         <label style="display:flex; align-items:center; gap:8px; font-weight:400; font-size:0.9rem; border:1px solid var(--color-border); border-radius:8px; padding:8px 10px;">
           <input type="checkbox" class="ku-usluga-check" data-usluga-id="${u.id}" />
           <span style="flex:1;">${kuEscape(u.naziv)} <span style="opacity:0.6; font-size:0.85em;">(${kuEscape(u.jedinicaMere)})</span></span>
-          ${traziUnos ? `<input type="number" class="ku-usluga-kolicina" data-usluga-id="${u.id}" min="0.1" step="0.1" value="${podrazumevanaKolicina}" placeholder="količina" style="display:none; width:90px;" />` : ""}
+          ${traziUnos ? `<input type="number" class="ku-usluga-kolicina" data-usluga-id="${u.id}" min="${minKolicine}" step="${koracKolicine}" value="${podrazumevanaKolicina}" placeholder="${jeKomad ? "kom" : "količina"}" style="display:none; width:90px;" />` : ""}
         </label>
         ${u.procenaPotrebna ? `<div class="ku-usluga-procena-note hint" style="display:none; margin:4px 0 0 30px;">Za ovo je potrebna procena na licu mesta — javi detalje u opisu, majstor će ti poslati posebnu ponudu.</div>` : ""}
       </div>`;
@@ -360,15 +369,16 @@
       stavke = izabraniRedovi.map((red) => {
         const uslugaId = red.dataset.uslugaId;
         const qtyInput = red.querySelector(".ku-usluga-kolicina");
+        const jeKomad = red.dataset.jm === "komad";
         let kolicina = 1;
         if (qtyInput) {
           kolicina = Number(qtyInput.value);
-          if (!kolicina || kolicina <= 0) greskaKolicina = true;
+          if (!kolicina || kolicina <= 0 || (jeKomad && !Number.isInteger(kolicina))) greskaKolicina = true;
         }
         return { uslugaId, kolicina };
       });
       if (greskaKolicina) {
-        errBox.textContent = "Unesi količinu (veću od 0) za sve izabrane usluge.";
+        errBox.textContent = "Unesi ispravnu količinu za sve izabrane usluge (ceo broj za \"komad\" stavke, veću od 0).";
         errBox.classList.add("show");
         return;
       }
