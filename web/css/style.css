@@ -549,7 +549,7 @@ section.section.alt { background: var(--color-primary-lighter); }
    (dogovoreno 21.9.), samo za ove dve sekcije, ne dira ostatak sajta. */
 .story-band {
   position: relative;
-  background: url('../img/hero-problem.jpg') center 30% / cover no-repeat;
+  background: url('../img/hero-problem.jpg') center top / cover no-repeat;
 }
 .story-band section.section { background: rgba(255,255,255,0.45); }
 .story-band section.section.alt { background: rgba(234,241,254,0.82); }
@@ -580,11 +580,12 @@ section.section.alt { background: var(--color-primary-lighter); }
   align-items: flex-start;
   position: relative;
 }
+.steps-icons {
+  margin-top: var(--space-4);
+}
 .step-icon {
   display: block;
-  width: 100%;
   text-align: center;
-  margin-top: var(--space-2);
   font-size: 1.4rem;
   line-height: 1;
 }
