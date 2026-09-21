@@ -448,15 +448,17 @@ textarea { resize: vertical; min-height: 90px; }
 }
 .hero-secondary .label { color: rgba(255,255,255,0.85); font-size: 0.9rem; }
 .hero-secondary a.pill {
+  background: var(--color-primary);
   color: #fff;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   font-weight: 700;
-  border: 1px solid rgba(255,255,255,0.5);
+  border: 1px solid var(--color-primary);
   border-radius: 999px;
-  padding: 6px 14px;
+  padding: 10px 20px;
   text-decoration: none;
+  box-shadow: 0 8px 18px rgba(0,0,0,0.3);
 }
-.hero-secondary a.pill:hover { background: rgba(255,255,255,0.12); text-decoration: none; }
+.hero-secondary a.pill:hover { background: #142763; text-decoration: none; }
 
 .hero-urgent {
   display: flex;
