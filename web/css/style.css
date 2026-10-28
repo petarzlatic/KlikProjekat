@@ -728,9 +728,15 @@ section.section.alt { background: var(--color-primary-lighter); }
   .site-header .inner { flex-wrap: wrap; }
   .stat-row { gap: var(--space-5); }
   /* Na uskim (telefonskim) ekranima hero sekcija postaje mnogo viša
-     (sadržaj se slaže jedan ispod drugog), pa "cover" zumira sliku
-     mnogo jače vodoravno nego na desktopu — podrazumevano centriranje
-     tad seče majstora sa slike. Pomereno na tačnu vodoravnu poziciju
-     gde on stoji na ovoj konkretnoj fotografiji (dogovoreno 28.10). */
-  .hero { background-position: 0 0, 65% top; }
+     (sadržaj se slaže jedan ispod drugog), pa "cover" na originalnoj
+     (širokoj) slici mora da je uveća daleko preko njene prave rezolucije
+     da bi pokrila ceo taj uski, visoki prostor — zato je delovala mutno.
+     Rešenje: posebna, već uspravno isečena slika (hero-krecenje-mobile.jpg)
+     fokusirana na majstora, koja zahteva mnogo manje uvećanje i ostaje
+     oštrija na telefonima (dogovoreno 28.10). */
+  .hero {
+    background:
+      linear-gradient(180deg, rgba(10,26,77,0.85) 0px, rgba(10,26,77,0.55) 220px, rgba(10,26,77,0.22) 480px, rgba(10,26,77,0.22) 100%),
+      url('../img/hero-krecenje-mobile.jpg') center top / cover no-repeat;
+  }
 }
