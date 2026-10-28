@@ -32,6 +32,55 @@
   const reqId = kuQueryParam("id");
   const mount = document.getElementById("ku-content");
 
+  // Kalkulator materijala (28.10, vidi PLAN_Kalkulator_Materijala_v1.md)
+  // — poslednja izračunata procena, zapamćena ovde da dugme "Kupi" (u
+  // attachHandlers) ima šta da upiše u materijal_klikovi bez ponovnog
+  // računanja.
+  let poslednjaMaterijalProcena = null;
+
+  /* Računa okvirnu procenu materijala iz STVARNIH stavki zahteva (ne iz
+     ponude — stavke pripadaju zahtevu kao celini) i vraća HTML kartice,
+     ili "" ako nema formula za ništa od izabranog (npr. kategorija bez
+     definisanih formula). Puni se tek kad je posao dogovoren (status
+     'u_toku') — pre toga klijent vidi samo informativnu procenu na
+     novi-zahtev.html, bez pomena partnera/kupovine. */
+  async function renderMaterijalKarta(req) {
+    const stavke = await KU.store.getStavkeByRequest(req.id);
+    if (stavke.length === 0) return "";
+    const uslugaIds = stavke.map((s) => s.uslugaId);
+    const formule = await KU.store.getMaterijalFormuleZaUsluge(uslugaIds);
+    if (formule.length === 0) return "";
+
+    const zbirPoMaterijalu = {};
+    stavke.forEach((s) => {
+      formule
+        .filter((f) => f.uslugaId === s.uslugaId)
+        .forEach((f) => {
+          const kljuc = f.materijalNaziv + "|" + f.jedinica;
+          zbirPoMaterijalu[kljuc] = (zbirPoMaterijalu[kljuc] || 0) + f.koeficijent * s.kolicina;
+        });
+    });
+
+    const lista = Object.entries(zbirPoMaterijalu).map(([kljuc, kol]) => {
+      const [naziv, jedinica] = kljuc.split("|");
+      const zaokruzeno = kol < 10 ? Number(kol.toFixed(1)) : Math.round(kol);
+      return { naziv, jedinica, kolicina: zaokruzeno };
+    });
+    if (lista.length === 0) return "";
+
+    poslednjaMaterijalProcena = { requestId: req.id, lista };
+    const partner = KU_CONFIG.PARTNER_PRODAVNICA;
+    const stavkeTekst = lista.map((s) => `~${s.kolicina} ${s.jedinica} — ${s.naziv}`).map(kuEscape).join(" · ");
+
+    return `
+      <div class="card mt-4" style="border-color:var(--color-primary-light); background:var(--color-primary-lighter);">
+        <h3 class="mt-0">🧱 Preporučena kupovina materijala</h3>
+        <p class="small mb-2">${stavkeTekst}</p>
+        <p class="small muted mb-3">Okvirna procena — tačna količina zavisi od stanja površine, proveri na licu mesta pre kupovine.</p>
+        <button type="button" class="btn btn-primary btn-sm" id="ku-kupi-materijal-btn">Kupi uz ${kuEscape(partner.popust)} popust — kod ${kuEscape(partner.kod)} (${kuEscape(partner.naziv)})</button>
+      </div>`;
+  }
+
   function statusBadge(status) {
     if (status === "otvoren") return '<span class="badge badge-open">Otvoren — čeka ponude</span>';
     if (status === "u_toku") return '<span class="badge badge-pending">Izvođač izabran</span>';
@@ -58,6 +107,9 @@
     const mojPredlog = (isProvider && req.status === "otvoren")
       ? await KU.store.getMojPredlogZaZahtev(req.id, user.id)
       : null;
+    // Kalkulator materijala — samo kad je posao dogovoren (vidi
+    // renderMaterijalKarta gore za obrazloženje).
+    const materijalKartaHtml = req.status === "u_toku" ? await renderMaterijalKarta(req) : "";
 
     const terminText = kuFormatTermin(req);
     let html = `
@@ -104,7 +156,7 @@
             </div>
             <p class="mt-3 mb-0 small">Dalji dogovor (tačan termin, cena) ide direktno sa izvođačem. Kad posao bude gotov, označi zahtev kao završen i ostavi ocenu.</p>
             <button class="btn btn-secondary mt-3" id="ku-complete-btn" type="button">Označi posao kao završen</button>
-          </div>`;
+          </div>` + materijalKartaHtml;
       } else if (req.status === "zavrsen") {
         const izv = acceptedOffer ? await KU.store.getUserById(acceptedOffer.izvodjacId) : null;
         if (izv && !(await KU.store.hasRated(req.id))) {
@@ -153,7 +205,7 @@
                 </div>
               </div>
               <p class="mt-3 mb-0 small">Dogovorite tačan termin i cenu direktno. Klijent će označiti posao kao završen i ostaviti ocenu nakon obavljenog posla.</p>
-            </div>`;
+            </div>` + materijalKartaHtml;
         } else if (myOffer) {
           html += `<div class="empty-state card"><p>Klijent je izabrao drugog izvođača za ovaj zahtev.</p></div>`;
         } else {
@@ -347,6 +399,27 @@
     if (completeBtn) completeBtn.addEventListener("click", async () => {
       await KU.store.completeRequest(req.id);
       render().catch((err) => { console.error(err); kuToast("Greška: " + err.message); });
+    });
+
+    const kupiMaterijalBtn = document.getElementById("ku-kupi-materijal-btn");
+    if (kupiMaterijalBtn) kupiMaterijalBtn.addEventListener("click", async () => {
+      const partner = KU_CONFIG.PARTNER_PRODAVNICA;
+      kupiMaterijalBtn.disabled = true;
+      try {
+        await KU.store.logMaterijalKlik({
+          requestId: req.id,
+          partnerNaziv: partner.naziv,
+          procenaMaterijala: poslednjaMaterijalProcena,
+        });
+      } catch (err) {
+        console.error("logMaterijalKlik greška:", err);
+      }
+      if (partner.url && partner.url !== "#") {
+        window.open(partner.url, "_blank", "noopener");
+      } else {
+        kuToast("Test faza — partner prodavnica još nije dogovorena. Klik je zabeležen.");
+      }
+      kupiMaterijalBtn.disabled = false;
     });
 
     renderStarPicker();
