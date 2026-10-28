@@ -93,6 +93,20 @@ const KU_CONFIG = {
     "ciscenje-generalno",
   ],
   OTEZANI_USLOVI_PROCENAT: 25,
+
+  // KALKULATOR MATERIJALA (28. oktobar 2026, vidi
+  // PLAN_Kalkulator_Materijala_v1.md) — Petrova ideja: okvirna procena
+  // materijala po usluzi + predlog kupovine kod partnera-prodavnice uz
+  // USKLIK popust kod (dodatni izvor prihoda, nezavisan od hibridnog
+  // mehanizma koji računa cenu rada). Test faza — nema još stvarnog
+  // partnera, ovo su placeholder podaci. Kad se dogovori prava
+  // saradnja, samo se ovaj objekat menja — bez druge izmene koda.
+  PARTNER_PRODAVNICA: {
+    naziv: "Partner prodavnica (TBD)",
+    url: "#",
+    kod: "USKLIK10",
+    popust: "10%",
+  },
 };
 
 // Hibridni mehanizam v3 (20. septembar 2026, vidi
