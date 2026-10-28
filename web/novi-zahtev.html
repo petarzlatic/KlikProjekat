@@ -52,6 +52,7 @@
         </div>
 
         <div class="hint" id="ku-cena-okvirna"></div>
+        <div class="hint mt-2" id="ku-materijal-okvirno"></div>
       </div>
 
       <div class="field">
@@ -143,7 +144,52 @@
      Stavke sa procenaPotrebna=true (npr. kompletno renoviranje kupatila,
      rušenje/demontaža) NE ulaze u automatski zbir — samo se prikazuju kao
      napomena da majstor šalje ponudu posle pregleda na licu mesta. ---- */
-  const stanjeStavki = { usluge: [], cenovnik: [] };
+  const stanjeStavki = { usluge: [], cenovnik: [], materijali: [] };
+
+  /* Kalkulator materijala (28.10, vidi PLAN_Kalkulator_Materijala_v1.md)
+     — čisto informativno ovde (bez linka za kupovinu, nema ni pomena
+     partnera): konkretan predlog kupovine uz USKLIK popust se pokazuje
+     tek posle prihvaćene ponude, na zahtev.html. */
+  function osveziOkvirnuProcenuMaterijala() {
+    const matEl = document.getElementById("ku-materijal-okvirno");
+    if (!matEl) return;
+    const kategorija = document.getElementById("kategorija").value;
+    if (!kategorija || !kuKategorijaAutomatska(kategorija) || stanjeStavki.materijali.length === 0) {
+      matEl.innerHTML = "";
+      return;
+    }
+
+    const redovi = Array.from(document.querySelectorAll(".ku-usluga-red"));
+    const izabrani = redovi.filter((red) => red.querySelector(".ku-usluga-check").checked);
+    if (izabrani.length === 0) { matEl.innerHTML = ""; return; }
+
+    // Sabira koeficijent × količina po materijalu (grupisano po nazivu +
+    // jedinici — dve različite boje, npr. belo i u boji, se NE sabiraju
+    // zajedno, ostaju odvojene stavke).
+    const zbirPoMaterijalu = {};
+    izabrani.forEach((red) => {
+      const uslugaId = red.dataset.uslugaId;
+      const qtyInput = red.querySelector(".ku-usluga-kolicina");
+      const kolicina = qtyInput ? Number(qtyInput.value) : 1;
+      if (!kolicina || kolicina <= 0) return;
+      stanjeStavki.materijali
+        .filter((m) => m.uslugaId === uslugaId)
+        .forEach((m) => {
+          const kljuc = m.materijalNaziv + "|" + m.jedinica;
+          zbirPoMaterijalu[kljuc] = (zbirPoMaterijalu[kljuc] || 0) + m.koeficijent * kolicina;
+        });
+    });
+
+    const stavkeTeksta = Object.entries(zbirPoMaterijalu).map(([kljuc, kol]) => {
+      const [naziv, jedinica] = kljuc.split("|");
+      const zaokruzeno = kol < 10 ? kol.toFixed(1) : Math.round(kol);
+      return `~${zaokruzeno} ${jedinica} — ${naziv}`;
+    });
+
+    matEl.innerHTML = stavkeTeksta.length
+      ? `🧱 <strong>Okvirna procena materijala:</strong> ${stavkeTeksta.map(kuEscape).join(" · ")} <span style="opacity:0.7;">(grubo, za orijentaciju — tačna količina zavisi od stanja površine)</span>`
+      : "";
+  }
 
   function osveziOkvirnuCenu() {
     const cenaEl = document.getElementById("ku-cena-okvirna");
@@ -254,13 +300,15 @@
     // (KU_CONFIG.AUTOMATSKE_USLUGE je uklonjena u v3), katalog sad sam nosi
     // dovoljno informacija (jedinicaMere, procenaPotrebna) da UI zna kako
     // da prikaže svaku stavku.
-    const [usluge, cenovnik] = await Promise.all([
+    const [usluge, cenovnik, materijali] = await Promise.all([
       KU.store.getUslugeByKategorija(kategorija),
       KU.store.getCenovnikZaKategoriju(kategorija),
+      KU.store.getMaterijalFormuleZaKategoriju(kategorija),
     ]);
 
     stanjeStavki.usluge = usluge;
     stanjeStavki.cenovnik = cenovnik;
+    stanjeStavki.materijali = materijali;
 
     listEl.innerHTML = usluge.map((u) => {
       // procenaPotrebna stavke nikad ne traže količinu, bez obzira na
@@ -291,11 +339,16 @@
         const note = red.querySelector(".ku-usluga-procena-note");
         if (note) note.style.display = cb.checked ? "block" : "none";
         osveziOkvirnuCenu();
+        osveziOkvirnuProcenuMaterijala();
       });
     });
-    listEl.querySelectorAll(".ku-usluga-kolicina").forEach((inp) => inp.addEventListener("input", osveziOkvirnuCenu));
+    listEl.querySelectorAll(".ku-usluga-kolicina").forEach((inp) => inp.addEventListener("input", () => {
+      osveziOkvirnuCenu();
+      osveziOkvirnuProcenuMaterijala();
+    }));
 
     osveziOkvirnuCenu();
+    osveziOkvirnuProcenuMaterijala();
   }
 
   document.getElementById("kategorija").addEventListener("change", osveziStavkeZaKategoriju);
