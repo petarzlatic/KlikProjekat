@@ -379,6 +379,55 @@ KU.store = {
     return (data || []).map(_kuMapStavka);
   },
 
+  /* Kalkulator materijala (28.10, vidi PLAN_Kalkulator_Materijala_v1.md)
+     — okvirne formule (koeficijent po jedinici usluge) za jednu
+     kategoriju, koristi live kalkulator na novi-zahtev.html dok klijent
+     bira usluge. Vraća niz {uslugaId, materijalNaziv, jedinica, koeficijent}. */
+  async getMaterijalFormuleZaKategoriju(kategorijaId) {
+    const { data, error } = await KU_SUPABASE
+      .from("materijal_formule")
+      .select("usluga_id, materijal_naziv, jedinica, koeficijent, usluge!inner(kategorija)")
+      .eq("usluge.kategorija", kategorijaId);
+    if (error) { console.error(error.message); return []; }
+    return (data || []).map((row) => ({
+      uslugaId: row.usluga_id,
+      materijalNaziv: row.materijal_naziv,
+      jedinica: row.jedinica,
+      koeficijent: Number(row.koeficijent),
+    }));
+  },
+
+  /* Isto kao gore, ali po konkretnom spisku usluga (koristi zahtev.html
+     da izračuna materijal iz STVARNIH stavki već objavljenog zahteva,
+     bez potrebe da zna kategoriju unapred). */
+  async getMaterijalFormuleZaUsluge(uslugaIds) {
+    if (!uslugaIds || uslugaIds.length === 0) return [];
+    const { data, error } = await KU_SUPABASE
+      .from("materijal_formule")
+      .select("usluga_id, materijal_naziv, jedinica, koeficijent")
+      .in("usluga_id", uslugaIds);
+    if (error) { console.error(error.message); return []; }
+    return (data || []).map((row) => ({
+      uslugaId: row.usluga_id,
+      materijalNaziv: row.materijal_naziv,
+      jedinica: row.jedinica,
+      koeficijent: Number(row.koeficijent),
+    }));
+  },
+
+  /* Upisuje klik na "Kupi materijal uz USKLIK popust" — nezavisna
+     evidencija od onoga što partner-prodavnica kasnije prijavi (vidi
+     plan dokument, sekcija 3.6). Namerno "fire and forget" na stranici
+     (ne čeka se da blokira preusmeravanje ka partneru). */
+  async logMaterijalKlik({ requestId, partnerNaziv, procenaMaterijala }) {
+    const { error } = await KU_SUPABASE.from("materijal_klikovi").insert({
+      request_id: requestId,
+      partner_naziv: partnerNaziv,
+      procena_materijala: procenaMaterijala || null,
+    });
+    if (error) console.error("logMaterijalKlik greška:", error.message);
+  },
+
   /* Otpremanje slike uz hitnu intervenciju (dogovoreno 7.9.) — Supabase
      Storage, bucket "hitne-slike" (javno čitljiv, vidi db/schema.sql deo
      7). Vraća javni URL slike koji se onda čuva u requests.slika_url. */
