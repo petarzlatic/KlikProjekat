@@ -70,12 +70,12 @@
 
     poslednjaMaterijalProcena = { requestId: req.id, lista };
     const partner = KU_CONFIG.PARTNER_PRODAVNICA;
-    const stavkeTekst = lista.map((s) => `~${s.kolicina} ${s.jedinica} — ${s.naziv}`).map(kuEscape).join(" · ");
+    const stavkeLi = lista.map((s) => `<li>~${s.kolicina} ${s.jedinica} — ${kuEscape(s.naziv)}</li>`).join("");
 
     return `
       <div class="card mt-4" style="border-color:var(--color-primary-light); background:var(--color-primary-lighter);">
         <h3 class="mt-0">🧱 Preporučena kupovina materijala</h3>
-        <p class="small mb-2">${stavkeTekst}</p>
+        <ul class="small mb-2" style="margin:0 0 8px 18px; padding:0;">${stavkeLi}</ul>
         <p class="small muted mb-3">Okvirna procena — tačna količina zavisi od stanja površine, proveri na licu mesta pre kupovine.</p>
         <button type="button" class="btn btn-primary btn-sm" id="ku-kupi-materijal-btn">Kupi uz ${kuEscape(partner.popust)} popust — kod ${kuEscape(partner.kod)} (${kuEscape(partner.naziv)})</button>
       </div>`;
