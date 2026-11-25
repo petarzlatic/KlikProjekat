@@ -51,6 +51,10 @@ const KU_CONFIG = {
     "kupatila",
     "ciscenje-redovno",
     "ciscenje-generalno",
+    // Runda 2 (22.11, vidi PLAN_Sledece_Kategorije_v1.md) — dodato 25.11:
+    "elektricar",
+    "gips-keramika",
+    "vodoinstalater",
   ],
 
   // Delovi grada / opštine — koristi se kao lokacija zahteva.
@@ -83,6 +87,14 @@ const KU_CONFIG = {
     "krecenje",
     "ciscenje-redovno",
     "ciscenje-generalno",
+    // Runda 2 (22.11, vidi PLAN_Sledece_Kategorije_v1.md) — dodato 25.11.
+    // VAŽNO: isti spisak postoji i u
+    // supabase/functions/generate-auto-offers/index.ts (zaseban
+    // hardkodovan const, Deno ne može da uveze config.js sa sajta) —
+    // ako menjaš ovde, promeni i tamo, pa redeploy Edge Function-a.
+    "elektricar",
+    "gips-keramika",
+    "vodoinstalater",
   ],
 
   // Kategorije gde klijent može da čekira "Loše stanje objekta /
