@@ -122,8 +122,15 @@ function kuRenderHeader(activeNav) {
 
   const logoutBtn = document.getElementById("ku-logout-btn");
   if (logoutBtn) {
-    logoutBtn.addEventListener("click", () => {
-      KU.store.logout();
+    logoutBtn.addEventListener("click", async () => {
+      // BAG FIX (25.11): logout() je asinhron (čeka Supabase da stvarno
+      // obriše sesiju iz localStorage) — ranije se ovde NIJE čekao
+      // (nedostajao await), pa je redirekcija na index.html znala da se
+      // desi PRE nego što je odjava stvarno završena. Posledica: stara
+      // sesija je ostajala aktivna, pa je izgledalo kao da sajt "ne
+      // reaguje" kad bi se pokušalo logovanje sa drugim nalogom.
+      logoutBtn.disabled = true;
+      await KU.store.logout();
       window.location.href = "index.html";
     });
   }
